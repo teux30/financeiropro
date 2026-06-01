@@ -10,7 +10,7 @@ interface Props {
 export function BottomNav({ onMore, onNovaTransacao }: Props) {
   const { perfilAtivo, activeView, setActiveView, setActiveProject } = useStore()
   const accent = perfilAtivo === 'pessoal' ? '#1d9e75' : '#e8a020'
-  const homeView: AppView = perfilAtivo === 'pessoal' ? 'dashboard' : 'empresa_dashboard'
+  const homeView: AppView = 'dashboard'
 
   const go = (v: AppView) => { setActiveProject(null); setActiveView(v) }
 

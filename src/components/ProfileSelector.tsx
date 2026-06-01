@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { User, Building2, TrendingUp, Plus, ChevronRight, Check, X } from 'lucide-react'
 import { useStore } from '../store/useStore'
-import type { AppView } from '../store/useStore'
 
 interface Props {
   onSelect: () => void
@@ -38,8 +37,8 @@ export function ProfileSelector({ onSelect }: Props) {
 
   const select = (perfil: 'pessoal' | 'empresa') => {
     setPerfilAtivo(perfil)
-    const view: AppView = perfil === 'pessoal' ? 'dashboard' : 'empresa_dashboard'
-    setActiveView(view)
+    // Dashboard é unificado: ambos os perfis abrem na mesma tela consolidada
+    setActiveView('dashboard')
     onSelect()
   }
 

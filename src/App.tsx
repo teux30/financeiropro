@@ -33,7 +33,6 @@ const ContaDetalhe    = lazy(() => import('./pages/banco/ContaDetalhe').then(m =
 const TransacoesPage  = lazy(() => import('./pages/banco/TransacoesPage').then(m => ({ default: m.TransacoesPage })))
 const TransferenciasPage = lazy(() => import('./pages/banco/TransferenciasPage').then(m => ({ default: m.TransferenciasPage })))
 const ControleFinanceiro = lazy(() => import('./pages/banco/ControleFinanceiro').then(m => ({ default: m.ControleFinanceiro })))
-const Dashboard360    = lazy(() => import('./pages/Dashboard360').then(m => ({ default: m.Dashboard360 })))
 
 export default function App() {
   return (
@@ -78,11 +77,10 @@ function AppShell() {
       case 'transacoes':      return <TransacoesPage />
       case 'transferencias':  return <TransferenciasPage />
       case 'controle_financeiro': return <ControleFinanceiro />
-      case 'dashboard_360':   return <Dashboard360 />
       // Shared
       case 'separacao':    return <SeparacaoPage />
       default:
-        return perfilAtivo === 'empresa' ? <DashboardEmpresa /> : <Dashboard />
+        return <Dashboard />
     }
   }
 

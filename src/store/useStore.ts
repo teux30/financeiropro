@@ -15,10 +15,14 @@ import type {
   Transferencia, Recorrente, CategoriaFin, OrcamentoItem,
 } from './bancoTypes'
 import { emptyBanco, emptyControle } from './bancoTypes'
+import type { Objetivo, AporteReal } from './objetivoTypes'
+import { patrimonioAlvo } from './objetivoTypes'
+import { totalGuardado, progressoPercentual } from './objetivoSelectors'
 import { buildProjecao } from '../pages/Simulador/math'
 
 export type { Empresa, Separacao, FluxoLancamento, Conta, Funcionario, Insumo, MovimentoEstoque, DREPeriodo }
 export type { BancoState, ControleFinanceiro, ContaBancaria, Transacao, Transferencia, Recorrente, CategoriaFin, OrcamentoItem }
+export type { Objetivo, AporteReal }
 
 export type Perfil = 'pessoal' | 'empresa'
 
@@ -30,7 +34,7 @@ export type AppView =
   | 'separacao'
   // Banking + financial control (work in both profiles)
   | 'contas' | 'conta_detalhe' | 'transacoes' | 'transferencias'
-  | 'controle_financeiro' | 'dashboard_360'
+  | 'controle_financeiro'
 
 export interface SimParams { inicial: number; mensal: number; yieldAnual: number; meta: number }
 export interface SimAlocacao { id: string; nome: string; percentual: number; cor: string }
@@ -81,6 +85,38 @@ function advanceFreq(iso: string, freq: Recorrente['frequencia']): string {
   else if (freq === 'mensal') d.setMonth(d.getMonth() + 1)
   else if (freq === 'anual') d.setFullYear(d.getFullYear() + 1)
   return d.toISOString()
+}
+
+// Gera mapa mental de um objetivo: centro + ramos (meta, ritmo, marcos)
+function gerarObjetivoNodes(o: Objetivo, aportes: AporteReal[]): { nodes: Node<MindMapNodeData>[]; edges: Edge[] } {
+  const fmt = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+  const alvo = patrimonioAlvo(o)
+  const guardado = totalGuardado(aportes, o.id)
+  const pct = progressoPercentual(o, aportes)
+  const BRANCHES = [
+    { label: 'Minha Meta', color: '#1d9e75', children: [`Alvo: ${isFinite(alvo) ? fmt(alvo) : '∞'}`, o.tipo === 'renda' ? `Renda: ${fmt(o.valorAlvo)}/mês` : 'Patrimônio', `Yield: ${o.yieldAnual}% a.a.`] },
+    { label: 'Meu Plano', color: '#378add', children: [`${fmt(o.valorPlanejado)} por ${o.frequencia}`, `Início: ${new Date(o.dataInicio).toLocaleDateString('pt-BR')}`] },
+    { label: 'Progresso', color: '#9b59b6', children: [`Guardado: ${fmt(guardado)}`, `${pct.toFixed(0)}% atingido`, `Aportes: ${aportes.filter(a => a.objetivoId === o.id).length}`] },
+    { label: 'Próximos Passos', color: '#e05252', children: ['Manter o ritmo', 'Aumentar aporte se possível', 'Revisar a cada marco'] },
+  ]
+  const nodes: Node<MindMapNodeData>[] = []
+  const edges: Edge[] = []
+  const cid = nanoid()
+  nodes.push({ id: cid, type: 'mind', position: { x: 0, y: 0 }, data: { label: o.nome, nodeType: 'central', color: '#1d9e75', gerado: true } })
+  BRANCHES.forEach((b, bi) => {
+    const angle = ((-90 + bi * 90) * Math.PI) / 180
+    const bx = Math.cos(angle) * 320, by = Math.sin(angle) * 320
+    const bid = nanoid()
+    nodes.push({ id: bid, type: 'mind', position: { x: bx, y: by }, data: { label: b.label, nodeType: 'topic', color: b.color, gerado: true } })
+    edges.push({ id: `e-${cid}-${bid}`, source: cid, target: bid, type: 'smoothstep', style: { stroke: b.color, strokeWidth: 2.5 } })
+    b.children.forEach((child, ci) => {
+      const perp = angle + Math.PI / 2, off = (ci - (b.children.length - 1) / 2) * 70
+      const chid = nanoid()
+      nodes.push({ id: chid, type: 'mind', position: { x: bx + Math.cos(angle) * 220 + Math.cos(perp) * off, y: by + Math.sin(angle) * 220 + Math.sin(perp) * off }, data: { label: child, nodeType: 'subtopic', color: b.color, gerado: true } })
+      edges.push({ id: `e-${bid}-${chid}`, source: bid, target: chid, type: 'smoothstep', style: { stroke: b.color, strokeWidth: 1.5 } })
+    })
+  })
+  return { nodes, edges }
 }
 
 // Resolve and mutate the correct banco slice (pessoal root or active empresa)
@@ -210,6 +246,18 @@ interface AppState {
   excluirSimulacao: (id: string) => void
   exportarParaMapaMental: (id: string) => string
 
+  // Acompanhamento real — objetivos & aportes
+  objetivos: Objetivo[]
+  aportesReais: AporteReal[]
+  criarObjetivo: (data: Omit<Objetivo, 'id' | 'criadoEm'>) => Objetivo
+  atualizarObjetivo: (id: string, data: Partial<Objetivo>) => void
+  excluirObjetivo: (id: string) => void
+  definirObjetivoPrincipal: (id: string) => void
+  registrarAporte: (data: Omit<AporteReal, 'id'>) => AporteReal
+  atualizarAporte: (id: string, data: Partial<AporteReal>) => void
+  excluirAporte: (id: string) => void
+  exportarObjetivoMapaMental: (objetivoId: string) => string
+
   // Empresas
   empresas: Empresa[]
   empresaAtivaId: string | null
@@ -304,6 +352,10 @@ interface AppState {
   getRendaMensalTotal: () => number
   getIndependenciaFinanceira: () => number
   getProjecaoIndependencia: () => number
+  // Consolidados (pessoal + todas as empresas)
+  getPatrimonioLiquidoTotal: () => number
+  getFluxoConsolidadoMes: (mes: string) => { entradas: number; saidas: number; saldo: number }
+  getDadosGraficoMestre: (periodo: 6 | 12 | 24) => { label: string; pessoal: number; empresa: number; total: number }[]
 
   // UI
   activeView: AppView
@@ -395,6 +447,55 @@ export const useStore = create<AppState>()(
         return { simParams: { inicial: sim.parametros.aporteInicial, mensal: sim.parametros.aporteMensal, yieldAnual: sim.parametros.yieldAnual, meta: sim.parametros.metaMensal } }
       }),
       excluirSimulacao: (id) => set(s => ({ simulacoesSalvas: s.simulacoesSalvas.filter(x => x.id !== id) })),
+
+      // ── Acompanhamento real ──────────────────────────────────────────────────
+      objetivos: [],
+      aportesReais: [],
+      criarObjetivo: (data) => {
+        const o: Objetivo = { ...data, id: nanoid(), criadoEm: new Date().toISOString() }
+        set(s => {
+          // primeiro objetivo é sempre principal; se o novo for principal, desmarca os outros
+          const ehPrincipal = o.principal || s.objetivos.length === 0
+          const base = ehPrincipal ? s.objetivos.map(x => ({ ...x, principal: false })) : s.objetivos
+          return { objetivos: [...base, { ...o, principal: ehPrincipal }] }
+        })
+        return o
+      },
+      atualizarObjetivo: (id, data) =>
+        set(s => ({ objetivos: s.objetivos.map(o => o.id === id ? { ...o, ...data } : o) })),
+      excluirObjetivo: (id) =>
+        set(s => {
+          const restantes = s.objetivos.filter(o => o.id !== id)
+          // se excluiu o principal, promove o primeiro restante
+          if (!restantes.some(o => o.principal) && restantes.length > 0) restantes[0] = { ...restantes[0], principal: true }
+          return { objetivos: restantes, aportesReais: s.aportesReais.filter(a => a.objetivoId !== id) }
+        }),
+      definirObjetivoPrincipal: (id) =>
+        set(s => ({ objetivos: s.objetivos.map(o => ({ ...o, principal: o.id === id })) })),
+      registrarAporte: (data) => {
+        const a: AporteReal = { ...data, id: nanoid() }
+        set(s => ({ aportesReais: [...s.aportesReais, a] }))
+        return a
+      },
+      atualizarAporte: (id, data) =>
+        set(s => ({ aportesReais: s.aportesReais.map(a => a.id === id ? { ...a, ...data } : a) })),
+      excluirAporte: (id) =>
+        set(s => ({ aportesReais: s.aportesReais.filter(a => a.id !== id) })),
+      exportarObjetivoMapaMental: (objetivoId) => {
+        const s = get()
+        const o = s.objetivos.find(x => x.id === objetivoId)
+        if (!o) return ''
+        const { nodes, edges } = gerarObjetivoNodes(o, s.aportesReais)
+        const p: Project = {
+          id: nanoid(), title: `Objetivo: ${o.nome}`, description: 'Acompanhamento de objetivo financeiro',
+          color: '#1d9e75', icon: 'Target', type: 'planning', status: 'active',
+          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+          nodes, edges, kanbanCards: [], origem: 'simulador',
+        }
+        set(prev => ({ projects: [...prev.projects, p] }))
+        return p.id
+      },
+
       exportarParaMapaMental: (id) => {
         const s = get()
         const sim = s.simulacoesSalvas.find(x => x.id === id)
@@ -694,6 +795,66 @@ export const useStore = create<AppState>()(
           if (pat * ym >= despesas) return n
         }
         return Infinity
+      },
+
+      // ── Consolidados (pessoal + TODAS as empresas) ──────────────────────────
+      getPatrimonioLiquidoTotal: () => {
+        const s = get()
+        const investido = s.simParams.inicial
+        const reserva = s.controlePessoal?.reservaEmergencia ?? 0
+        const saldoPessoal = s.getSaldoTotal('pessoal')
+        // soma saldos bancários + estoque de todas as empresas
+        const empresaTotal = s.empresas.reduce((sum, e) => {
+          const estoque = e.insumos.reduce((x, i) => x + i.estoqueAtual * i.custoUnitario, 0)
+          const caixa = (e.banco?.contas ?? []).reduce((x, c) => {
+            const delta = (e.banco?.transacoes ?? [])
+              .filter(t => t.contaId === c.id)
+              .reduce((d, t) => d + (t.tipo === 'entrada' ? t.valor : -t.valor), 0)
+            return x + c.saldoInicial + delta
+          }, 0)
+          return sum + estoque + caixa
+        }, 0)
+        return investido + reserva + saldoPessoal + empresaTotal
+      },
+      getFluxoConsolidadoMes: (mes) => {
+        const s = get()
+        // pessoal
+        const entP = s.getReceitasMes(mes, 'pessoal')
+        const saiP = s.getDespesasMes(mes, 'pessoal')
+        // todas as empresas
+        let entE = 0, saiE = 0
+        s.empresas.forEach(e => {
+          const txs = e.banco?.transacoes ?? []
+          txs.filter(t => t.categoria !== 'transferencia' && t.data.slice(0, 7) === mes).forEach(t => {
+            if (t.tipo === 'entrada') entE += t.valor
+            else saiE += t.valor
+          })
+        })
+        const entradas = entP + entE
+        const saidas = saiP + saiE
+        return { entradas, saidas, saldo: entradas - saidas }
+      },
+      getDadosGraficoMestre: (periodo) => {
+        const s = get()
+        const now = new Date()
+        const arr: { label: string; pessoal: number; empresa: number; total: number }[] = []
+        const meses = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+        for (let i = periodo - 1; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+          const pessoal = Math.max(0, s.getReceitasMes(key, 'pessoal') - s.getDespesasMes(key, 'pessoal'))
+          // soma de todas as empresas no mês
+          let entE = 0, saiE = 0
+          s.empresas.forEach(e => {
+            (e.banco?.transacoes ?? []).filter(t => t.categoria !== 'transferencia' && t.data.slice(0, 7) === key).forEach(t => {
+              if (t.tipo === 'entrada') entE += t.valor; else saiE += t.valor
+            })
+          })
+          const empresa = Math.max(0, entE - saiE)
+          const label = periodo > 12 ? `${meses[d.getMonth()]}/${String(d.getFullYear()).slice(2)}` : meses[d.getMonth()]
+          arr.push({ label, pessoal, empresa, total: pessoal + empresa })
+        }
+        return arr
       },
 
       // UI

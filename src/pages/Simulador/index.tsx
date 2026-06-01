@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Share2, FileDown, Calculator, Save, BarChart2 } from 'lucide-react'
+import { Share2, FileDown, Calculator, Save, BarChart2, LineChart } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import {
   toYieldMensal, calcPatrimonio, calcRenda, calcCapitalNecessario,
@@ -15,6 +15,9 @@ import { MetaDestaque }   from './MetaDestaque'
 import { SaveModal }      from './SaveModal'
 import { SimulacoesGrid } from './SimulacoesGrid'
 import { EditableLabel }  from './EditableLabel'
+import { Acompanhamento } from './acompanhamento/Acompanhamento'
+
+type SimTab = 'simular' | 'acompanhar'
 
 // ─── URL helpers ─────────────────────────────────────────────────────────────
 function readURLParams() {
@@ -43,6 +46,8 @@ export function SimuladorPage() {
 
   const pageRef = useRef<HTMLDivElement>(null)
   const [saveOpen, setSaveOpen] = useState(false)
+  const [tab, setTab] = useState<SimTab>('simular')
+  const objetivos = useStore(s => s.objetivos)
 
   // Load URL params once
   useEffect(() => {
@@ -140,22 +145,51 @@ export function SimuladorPage() {
               <p className="text-xs text-[#8b949e]">Calcule seu caminho para a liberdade financeira</p>
             </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <button onClick={share}
-              className="flex items-center gap-1.5 px-3 py-2 bg-[#21262d] hover:bg-[#30363d] text-sm text-[#8b949e] hover:text-[#e6edf3] rounded-lg transition-colors">
-              <Share2 size={14} /> Compartilhar
-            </button>
-            <button onClick={exportPDF}
-              className="flex items-center gap-1.5 px-3 py-2 bg-[#21262d] hover:bg-[#30363d] text-sm text-[#8b949e] hover:text-[#e6edf3] rounded-lg transition-colors">
-              <FileDown size={14} /> Exportar PDF
-            </button>
-            <button onClick={() => setSaveOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white rounded-lg transition-colors"
-              style={{ background: '#1d9e75' }}>
-              <Save size={14} /> Salvar simulação
-            </button>
-          </div>
+          {tab === 'simular' && (
+            <div className="flex gap-2 flex-wrap">
+              <button onClick={share}
+                className="flex items-center gap-1.5 px-3 py-2 bg-[#21262d] hover:bg-[#30363d] text-sm text-[#8b949e] hover:text-[#e6edf3] rounded-lg transition-colors">
+                <Share2 size={14} /> Compartilhar
+              </button>
+              <button onClick={exportPDF}
+                className="flex items-center gap-1.5 px-3 py-2 bg-[#21262d] hover:bg-[#30363d] text-sm text-[#8b949e] hover:text-[#e6edf3] rounded-lg transition-colors">
+                <FileDown size={14} /> Exportar PDF
+              </button>
+              <button onClick={() => setSaveOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                style={{ background: '#1d9e75' }}>
+                <Save size={14} /> Salvar simulação
+              </button>
+            </div>
+          )}
         </div>
+
+        {/* ── Abas ─────────────────────────────────────────────────────────── */}
+        <div className="flex gap-1 bg-[#161b22] border border-[#21262d] rounded-xl p-1 self-start">
+          {([
+            { id: 'simular' as SimTab, label: 'Simular', icon: BarChart2 },
+            { id: 'acompanhar' as SimTab, label: 'Acompanhamento', icon: LineChart, badge: objetivos.length },
+          ]).map(t => {
+            const Icon = t.icon
+            const active = tab === t.id
+            return (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                style={{ background: active ? '#1d9e7522' : 'transparent', color: active ? '#1d9e75' : '#8b949e' }}>
+                <Icon size={15} /> {t.label}
+                {t.badge != null && t.badge > 0 && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ background: '#1d9e7533', color: '#1d9e75' }}>{t.badge}</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* ── ABA ACOMPANHAMENTO ───────────────────────────────────────────── */}
+        {tab === 'acompanhar' && <Acompanhamento />}
+
+        {/* ── ABA SIMULAR (conteúdo original) ──────────────────────────────── */}
+        {tab === 'simular' && <>
 
         {/* ── 0. Meta Destaque ─────────────────────────────────────────────── */}
         <MetaDestaque
@@ -248,6 +282,8 @@ export function SimuladorPage() {
 
         {/* ── 7. Simulações salvas ──────────────────────────────────────────── */}
         <SimulacoesGrid onExportMindMap={handleExportMindMap} />
+
+        </>}
 
       </div>
 

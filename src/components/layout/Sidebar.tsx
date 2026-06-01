@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Calculator, Brain, BookOpen, ArrowLeftRight,
   BarChart3, Package, Users, Activity,
   ArrowDownCircle, ArrowUpCircle, TrendingUp, ChevronRight,
-  Settings, Wallet, Receipt, CreditCard, Globe,
+  Settings, Wallet, Receipt, CreditCard, Building2,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AppView } from '../../store/useStore'
@@ -24,7 +24,6 @@ const PESSOAL_NAV: NavSection[] = [
     title: 'Visão',
     items: [
       { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { id: 'dashboard_360', label: 'Visão Geral 360°', icon: Globe },
     ],
   },
   {
@@ -59,9 +58,15 @@ const PESSOAL_NAV: NavSection[] = [
 
 const EMPRESA_NAV: NavSection[] = [
   {
+    title: 'Visão',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+    ],
+  },
+  {
     title: 'Visão Geral',
     items: [
-      { id: 'empresa_dashboard', label: 'Dashboard', icon: LayoutDashboard },
+      { id: 'empresa_dashboard', label: 'Painel da Empresa', icon: Building2 },
       { id: 'empresa_dre', label: 'DRE — Resultado', icon: BarChart3 },
       { id: 'empresa_fluxo', label: 'Fluxo de Caixa', icon: ArrowLeftRight },
     ],
@@ -98,7 +103,6 @@ const EMPRESA_NAV: NavSection[] = [
   {
     title: 'Planejamento',
     items: [
-      { id: 'dashboard_360', label: 'Visão Geral 360°', icon: Globe },
       { id: 'projects', label: 'Mapa Mental', icon: Brain },
       { id: 'separacao', label: 'Separação Financeira', icon: TrendingUp },
     ],
