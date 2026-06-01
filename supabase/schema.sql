@@ -19,9 +19,19 @@ create table if not exists public.profiles (
   nome        text,
   email       text,
   avatar_url  text,
+  data        jsonb not null default '{}'::jsonb,  -- snapshot completo do app (fonte da verdade na nuvem)
   created_at  timestamptz not null default now(),
   updated_at  timestamptz not null default now()
 );
+
+-- Se a tabela já existia sem a coluna `data`, adiciona agora (idempotente)
+alter table public.profiles add column if not exists data jsonb not null default '{}'::jsonb;
+
+-- Realtime para o profiles (sincronização PC ↔ celular do snapshot)
+do $$ begin
+  alter publication supabase_realtime add table public.profiles;
+exception when others then null;
+end $$;
 
 alter table public.profiles enable row level security;
 

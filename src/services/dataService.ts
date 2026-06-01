@@ -68,7 +68,8 @@ async function pull(userId: string): Promise<{ data: Record<string, unknown>; up
     .select('data, updated_at')
     .eq('id', userId)
     .maybeSingle()
-  if (error || !data?.data) return null
+  if (error) { console.error('[sync] falha ao carregar da nuvem:', error.message); return null }
+  if (!data?.data) return null
   const snap = data.data as Record<string, unknown>
   // nuvem "vazia" (registro recém-criado) = trata como inexistente
   if (!snapshotTemConteudo(snap)) return null
@@ -90,6 +91,7 @@ async function push(userId: string) {
     updated_at: new Date().toISOString(),
   })
   if (error) {
+    console.error('[sync] falha ao salvar na nuvem:', error.message, error)
     sync.setStatus('error')
     sync.enqueue({ table: 'profiles', op: 'upsert', payload: { id: userId } })
   } else {
