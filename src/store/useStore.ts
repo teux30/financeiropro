@@ -357,6 +357,10 @@ interface AppState {
   getFluxoConsolidadoMes: (mes: string) => { entradas: number; saidas: number; saldo: number }
   getDadosGraficoMestre: (periodo: 6 | 12 | 24) => { label: string; pessoal: number; empresa: number; total: number }[]
 
+  // IA — aprendizado de mapeamentos (estabelecimento → contexto/categoria)
+  mapeamentos: { estabelecimento: string; contexto: 'pessoal' | 'empresa'; categoria: CategoriaFin; contagem: number }[]
+  registrarMapeamento: (estabelecimento: string, contexto: 'pessoal' | 'empresa', categoria: CategoriaFin) => void
+
   // UI
   activeView: AppView
   activeProjectId: string | null
@@ -855,6 +859,24 @@ export const useStore = create<AppState>()(
           arr.push({ label, pessoal, empresa, total: pessoal + empresa })
         }
         return arr
+      },
+
+      // ── IA — mapeamentos aprendidos ─────────────────────────────────────────
+      mapeamentos: [],
+      registrarMapeamento: (estabelecimento, contexto, categoria) => {
+        const nome = estabelecimento.trim().toLowerCase()
+        if (!nome) return
+        set(s => {
+          const existente = s.mapeamentos.find(m => m.estabelecimento === nome)
+          if (existente) {
+            return {
+              mapeamentos: s.mapeamentos.map(m =>
+                m.estabelecimento === nome ? { ...m, contexto, categoria, contagem: m.contagem + 1 } : m
+              ),
+            }
+          }
+          return { mapeamentos: [...s.mapeamentos, { estabelecimento: nome, contexto, categoria, contagem: 1 }] }
+        })
       },
 
       // UI

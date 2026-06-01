@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { Plus, Search, ArrowDownLeft, ArrowUpRight, Check, Trash2, Pencil } from 'lucide-react'
+import { Plus, Search, ArrowDownLeft, ArrowUpRight, Check, Trash2, Pencil, Sparkles } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { Transacao, TransacaoTipo, CategoriaFin } from '../../store/bancoTypes'
 import { CATEGORIAS, categoriasPorPerfil } from '../../store/bancoTypes'
@@ -8,6 +8,7 @@ import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { CategoriaIcon } from '../../lib/banco-ui'
 import { fmtBRL, labelDia, hoje, maskSaldo } from '../../lib/format'
+import { CapturaIA } from './CapturaIA'
 
 interface FormState {
   contaId: string; tipo: TransacaoTipo; valor: string; descricao: string
@@ -26,6 +27,7 @@ export function TransacoesPage() {
   const catsSaida: CategoriaFin[] = categoriasPorPerfil(perfilAtivo, 'saida')
 
   const [showModal, setShowModal] = useState(false)
+  const [capturaOpen, setCapturaOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>({
     contaId: '', tipo: 'saida', valor: '', descricao: '', categoria: catsSaida[0], data: hoje(), observacoes: '',
@@ -98,9 +100,14 @@ export function TransacoesPage() {
             <h1 className="text-xl sm:text-2xl font-bold text-[#e6edf3]">Transações</h1>
             <p className="text-xs sm:text-sm text-[#8b949e] mt-0.5">{filtradas.length} lançamentos</p>
           </div>
-          <Button onClick={openNew} disabled={banco.contas.length === 0} className="text-white" style={{ background: accent } as React.CSSProperties}>
-            <Plus size={16} /> <span className="hidden sm:inline">Nova</span>
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setCapturaOpen(true)} variant="secondary" title="Capturar por foto (IA)">
+              <Sparkles size={16} style={{ color: '#1d9e75' }} /> <span className="hidden sm:inline">Foto IA</span>
+            </Button>
+            <Button onClick={openNew} disabled={banco.contas.length === 0} className="text-white" style={{ background: accent } as React.CSSProperties}>
+              <Plus size={16} /> <span className="hidden sm:inline">Nova</span>
+            </Button>
+          </div>
         </div>
 
         {/* Resumo */}
@@ -230,6 +237,8 @@ export function TransacoesPage() {
           </div>
         </form>
       </Modal>
+
+      <CapturaIA open={capturaOpen} onClose={() => setCapturaOpen(false)} />
     </div>
   )
 }
