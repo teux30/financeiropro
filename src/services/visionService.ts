@@ -27,7 +27,7 @@ export interface Mapeamento {
 
 export const isVisionConfigured = Boolean(import.meta.env.VITE_ANTHROPIC_API_KEY)
 
-const MODEL = (import.meta.env.VITE_ANTHROPIC_MODEL as string) || 'claude-3-5-sonnet-20241022'
+const MODEL = (import.meta.env.VITE_ANTHROPIC_MODEL as string) || 'claude-haiku-4-5-20251001'
 
 // monta a descrição das categorias válidas pra IA não inventar
 function listaCategorias(perfil: 'pessoal' | 'empresa'): string {
