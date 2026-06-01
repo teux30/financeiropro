@@ -4,10 +4,11 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianG
 import { useStore } from '../../store/useStore'
 import { CategoriaIcon } from '../../lib/banco-ui'
 import { fmtBRL, fmtBRLshort, fmtData, labelDia, maskSaldo } from '../../lib/format'
+import { CaixinhasSection } from './CaixinhasSection'
 
 export function ContaDetalhe() {
   const {
-    getBanco, getSaldoConta, activeContaId,
+    getBanco, getSaldoConta, getSaldoReservado, activeContaId,
     setActiveView, ocultarSaldos,
   } = useStore()
   const banco = getBanco()
@@ -41,6 +42,7 @@ export function ContaDetalhe() {
   }
 
   const saldo = getSaldoConta(conta.id)
+  const reservado = getSaldoReservado(conta.id)
   const grupos = (() => {
     const m = new Map<string, typeof txs>()
     txs.forEach(t => { const k = t.data.slice(0, 10); if (!m.has(k)) m.set(k, []); m.get(k)!.push(t) })
@@ -57,6 +59,11 @@ export function ContaDetalhe() {
           </button>
           <p className="text-white/80 text-sm">{conta.nome} · {conta.banco}</p>
           <p className="text-3xl sm:text-4xl font-black text-white mt-1">{maskSaldo(fmtBRL(saldo), ocultarSaldos)}</p>
+          {reservado > 0 && (
+            <p className="text-white/80 text-xs mt-1">
+              Livre {maskSaldo(fmtBRL(saldo - reservado), ocultarSaldos)} · Em caixinhas {maskSaldo(fmtBRL(reservado), ocultarSaldos)}
+            </p>
+          )}
           {/* ações rápidas */}
           <div className="flex gap-2 mt-4">
             <button onClick={() => setActiveView('transacoes')} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-medium">
@@ -92,6 +99,9 @@ export function ContaDetalhe() {
             </AreaChart>
           </ResponsiveContainer>
         </div>
+
+        {/* Caixinhas */}
+        <CaixinhasSection contaId={conta.id} accent={conta.cor} />
 
         {/* Extrato */}
         <div>

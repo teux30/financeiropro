@@ -1,9 +1,10 @@
 import { useState } from 'react'
-import { Trash2, Plus, Check } from 'lucide-react'
+import { Trash2, Plus, Check, Send } from 'lucide-react'
 import { Modal } from './Modal'
 import { Input } from './Input'
 import { Button } from './Button'
 import { useStore } from '../../store/useStore'
+import { enviarLembreteTeste } from '../../services/notifService'
 
 interface Props {
   open: boolean
@@ -18,7 +19,7 @@ export function SettingsModal({ open, onClose }: Props) {
     adicionarEmpresa, atualizarEmpresa, excluirEmpresa,
   } = useStore()
 
-  const [tab, setTab] = useState<'pessoal' | 'empresa'>('pessoal')
+  const [tab, setTab] = useState<'pessoal' | 'empresa' | 'notif'>('pessoal')
   const [nome, setNome] = useState(usuario.nome)
   const [metaInput, setMetaInput] = useState(String(simParams.meta))
   const [aporteInput, setAporteInput] = useState(String(simParams.mensal))
@@ -58,20 +59,22 @@ export function SettingsModal({ open, onClose }: Props) {
     <Modal open={open} onClose={onClose} title="Configurações" maxWidth="max-w-lg">
       {/* Tabs */}
       <div className="flex gap-1 mb-5 bg-[#0d1117] p-1 rounded-lg">
-        {(['pessoal', 'empresa'] as const).map(t => (
+        {(['pessoal', 'empresa', 'notif'] as const).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
-            className="flex-1 py-1.5 rounded-md text-sm font-medium transition-colors"
+            className="flex-1 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors"
             style={{
-              background: tab === t ? (t === 'pessoal' ? '#1d9e7522' : '#e8a02022') : 'transparent',
-              color: tab === t ? (t === 'pessoal' ? '#1d9e75' : '#e8a020') : '#8b949e',
+              background: tab === t ? (t === 'pessoal' ? '#1d9e7522' : t === 'empresa' ? '#e8a02022' : '#3b82f622') : 'transparent',
+              color: tab === t ? (t === 'pessoal' ? '#1d9e75' : t === 'empresa' ? '#e8a020' : '#3b82f6') : '#8b949e',
             }}
           >
-            {t === 'pessoal' ? '👤 Pessoal' : '🏢 Empresa'}
+            {t === 'pessoal' ? '👤 Pessoal' : t === 'empresa' ? '🏢 Empresa' : '🔔 Avisos'}
           </button>
         ))}
       </div>
+
+      {tab === 'notif' && <NotifPrefsTab />}
 
       {tab === 'pessoal' && (
         <div className="flex flex-col gap-4">
@@ -169,5 +172,86 @@ export function SettingsModal({ open, onClose }: Props) {
         </div>
       )}
     </Modal>
+  )
+}
+
+// ── Aba de preferências de notificação ────────────────────────────────────────
+function NotifPrefsTab() {
+  const { notifPrefs, setNotifPrefs, usuario } = useStore()
+  const [enviando, setEnviando] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  const toggleAntecedencia = (d: number) => {
+    const has = notifPrefs.antecedencias.includes(d)
+    setNotifPrefs({ antecedencias: has ? notifPrefs.antecedencias.filter(x => x !== d) : [...notifPrefs.antecedencias, d].sort((a, b) => b - a) })
+  }
+  const toggleTipo = (k: keyof typeof notifPrefs.tipos) =>
+    setNotifPrefs({ tipos: { ...notifPrefs.tipos, [k]: !notifPrefs.tipos[k] } })
+
+  const teste = async () => {
+    setEnviando(true); setMsg('')
+    const dest = notifPrefs.email || usuario.nome
+    const r = await enviarLembreteTeste(notifPrefs.email)
+    setEnviando(false)
+    setMsg(r.ok ? `E-mail de teste enviado para ${dest || 'seu e-mail'}!` : (r.error ?? 'Falha ao enviar.'))
+  }
+
+  const ANTEC = [{ d: 7, l: '7 dias' }, { d: 3, l: '3 dias' }, { d: 1, l: '1 dia' }, { d: 0, l: 'No dia' }]
+  const TIPOS: { k: keyof typeof notifPrefs.tipos; l: string }[] = [
+    { k: 'contasEmpresa', l: 'Contas da empresa' },
+    { k: 'despesasPessoais', l: 'Despesas pessoais' },
+    { k: 'aportes', l: 'Dia de aporte' },
+    { k: 'impostos', l: 'Impostos a pagar' },
+  ]
+
+  return (
+    <div className="flex flex-col gap-4">
+      <label className="flex items-center justify-between cursor-pointer">
+        <span className="text-sm text-[#e6edf3]">Notificações por e-mail</span>
+        <input type="checkbox" checked={notifPrefs.ativo} onChange={e => setNotifPrefs({ ativo: e.target.checked })} className="accent-[#3b82f6] w-4 h-4" />
+      </label>
+
+      <Input label="E-mail de destino" type="email" value={notifPrefs.email}
+        onChange={e => setNotifPrefs({ email: e.target.value })} placeholder="seu@email.com" />
+
+      <div>
+        <label className="text-sm font-medium text-[#8b949e] block mb-2">Avisar com antecedência de</label>
+        <div className="grid grid-cols-4 gap-2">
+          {ANTEC.map(a => {
+            const on = notifPrefs.antecedencias.includes(a.d)
+            return (
+              <button key={a.d} type="button" onClick={() => toggleAntecedencia(a.d)}
+                className="py-2 rounded-lg text-xs font-medium transition-colors border"
+                style={{ background: on ? '#3b82f622' : 'transparent', color: on ? '#3b82f6' : '#8b949e', borderColor: on ? '#3b82f6' : '#30363d' }}>
+                {a.l}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <Input label="Horário preferido" type="time" value={notifPrefs.horario} onChange={e => setNotifPrefs({ horario: e.target.value })} />
+
+      <div>
+        <label className="text-sm font-medium text-[#8b949e] block mb-2">O que notificar</label>
+        <div className="flex flex-col gap-2">
+          {TIPOS.map(t => (
+            <label key={t.k} className="flex items-center gap-2 text-sm text-[#e6edf3] cursor-pointer">
+              <input type="checkbox" checked={notifPrefs.tipos[t.k]} onChange={() => toggleTipo(t.k)} className="accent-[#3b82f6] w-4 h-4" />
+              {t.l}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <Button variant="secondary" onClick={teste} disabled={enviando}>
+        <Send size={14} /> {enviando ? 'Enviando...' : 'Enviar e-mail de teste'}
+      </Button>
+      {msg && <p className="text-xs" style={{ color: msg.includes('enviado') ? '#1d9e75' : '#e8a020' }}>{msg}</p>}
+
+      <p className="text-[11px] text-[#484f58]">
+        O envio automático depende da Edge Function + cron configurados no Supabase (veja NOTIFICACOES_SETUP.md).
+      </p>
+    </div>
   )
 }

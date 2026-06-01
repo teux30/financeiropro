@@ -3,6 +3,7 @@ import { useStore } from '../../store/useStore'
 import { useAuthStore } from '../../store/useAuthStore'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { SyncStatus } from '../SyncStatus'
+import { NotificationBell } from '../NotificationBell'
 
 interface HeaderProps {
   onTrocarPerfil: () => void
@@ -64,6 +65,7 @@ export function Header({ onTrocarPerfil, onOpenSettings }: HeaderProps) {
       {/* Right */}
       <div className="flex items-center gap-2">
         <SyncStatus />
+        <NotificationBell />
 
         {!isPessoal && (
           <span

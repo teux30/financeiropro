@@ -13,6 +13,7 @@ import type {
 import type {
   BancoState, ControleFinanceiro, ContaBancaria, Transacao,
   Transferencia, Recorrente, CategoriaFin, OrcamentoItem,
+  Caixinha, MovimentoCaixinha,
 } from './bancoTypes'
 import { emptyBanco, emptyControle } from './bancoTypes'
 import type { Objetivo, AporteReal } from './objetivoTypes'
@@ -22,9 +23,26 @@ import { buildProjecao } from '../pages/Simulador/math'
 
 export type { Empresa, Separacao, FluxoLancamento, Conta, Funcionario, Insumo, MovimentoEstoque, DREPeriodo }
 export type { BancoState, ControleFinanceiro, ContaBancaria, Transacao, Transferencia, Recorrente, CategoriaFin, OrcamentoItem }
+export type { Caixinha, MovimentoCaixinha }
 export type { Objetivo, AporteReal }
 
 export type Perfil = 'pessoal' | 'empresa'
+
+export interface NotifPrefs {
+  ativo: boolean
+  email: string
+  antecedencias: number[]   // dias antes: ex [7,3,1,0]
+  horario: string          // 'HH:MM'
+  tipos: { contasEmpresa: boolean; despesasPessoais: boolean; aportes: boolean; impostos: boolean }
+}
+
+const DEFAULT_NOTIF_PREFS: NotifPrefs = {
+  ativo: true,
+  email: '',
+  antecedencias: [7, 3, 1, 0],
+  horario: '08:00',
+  tipos: { contasEmpresa: true, despesasPessoais: true, aportes: false, impostos: false },
+}
 
 export type AppView =
   | 'dashboard' | 'projects' | 'editor' | 'kanban' | 'diary' | 'simulador'
@@ -318,6 +336,19 @@ interface AppState {
   getSaldoConta: (contaId: string, perfil?: Perfil) => number
   getSaldoTotal: (perfil?: Perfil) => number
 
+  // caixinhas
+  criarCaixinha: (c: Omit<Caixinha, 'id' | 'criadoEm'>, depositoInicial?: number, perfil?: Perfil) => void
+  editarCaixinha: (id: string, data: Partial<Caixinha>, perfil?: Perfil) => void
+  excluirCaixinha: (id: string, perfil?: Perfil) => void
+  depositarCaixinha: (caixinhaId: string, valor: number, data: string, obs?: string, perfil?: Perfil) => boolean
+  retirarCaixinha: (caixinhaId: string, valor: number, data: string, obs?: string, perfil?: Perfil) => boolean
+  transferirEntreCaixinhas: (origemId: string, destinoId: string, valor: number, data: string, obs?: string, perfil?: Perfil) => boolean
+  getSaldoCaixinha: (caixinhaId: string, perfil?: Perfil) => number
+  getSaldoReservado: (contaId: string, perfil?: Perfil) => number
+  getSaldoLivreConta: (contaId: string, perfil?: Perfil) => number
+  getProgressoCaixinha: (caixinhaId: string, perfil?: Perfil) => number
+  getExtratoCaixinha: (caixinhaId: string, perfil?: Perfil) => MovimentoCaixinha[]
+
   // transações
   registrarTransacao: (t: Omit<Transacao, 'id'>, perfil?: Perfil) => Transacao
   editarTransacao: (id: string, data: Partial<Transacao>, perfil?: Perfil) => void
@@ -340,6 +371,12 @@ interface AppState {
   // controle financeiro
   setOrcamento: (orcamento: OrcamentoItem[], perfil?: Perfil) => void
   setReservaEmergencia: (valor: number, perfil?: Perfil) => void
+
+  // ── Preferências de notificação ──────────────────────────────────────────────
+  notifPrefs: NotifPrefs
+  setNotifPrefs: (data: Partial<NotifPrefs>) => void
+  avisosLidos: string[]   // ids de avisos dispensados in-app
+  marcarAvisoLido: (id: string) => void
 
   // ── Selectors consolidados ──────────────────────────────────────────────────
   getReceitasMes: (mes: string, perfil?: Perfil) => number   // mes = 'YYYY-MM'
@@ -617,6 +654,87 @@ export const useStore = create<AppState>()(
         return b.contas.reduce((sum, c) => sum + s.getSaldoConta(c.id, perfil), 0)
       },
 
+      // ── Caixinhas ────────────────────────────────────────────────────────────
+      getSaldoCaixinha: (caixinhaId, perfil) => {
+        const b = get().getBanco(perfil)
+        return b.movimentosCaixinha.reduce((sum, m) => {
+          if (m.caixinhaId === caixinhaId) {
+            if (m.tipo === 'deposito') return sum + m.valor
+            if (m.tipo === 'retirada') return sum - m.valor
+            if (m.tipo === 'transferencia') return sum - m.valor // saiu desta caixinha
+          }
+          // transferência recebida
+          if (m.tipo === 'transferencia' && m.caixinhaDestinoId === caixinhaId) return sum + m.valor
+          return sum
+        }, 0)
+      },
+      getSaldoReservado: (contaId, perfil) => {
+        const s = get()
+        const b = s.getBanco(perfil)
+        return b.caixinhas.filter(c => c.contaId === contaId)
+          .reduce((sum, c) => sum + s.getSaldoCaixinha(c.id, perfil), 0)
+      },
+      getSaldoLivreConta: (contaId, perfil) => {
+        const s = get()
+        return s.getSaldoConta(contaId, perfil) - s.getSaldoReservado(contaId, perfil)
+      },
+      getProgressoCaixinha: (caixinhaId, perfil) => {
+        const s = get()
+        const b = s.getBanco(perfil)
+        const cx = b.caixinhas.find(c => c.id === caixinhaId)
+        if (!cx?.meta || cx.meta <= 0) return 0
+        return Math.min(100, (s.getSaldoCaixinha(caixinhaId, perfil) / cx.meta) * 100)
+      },
+      getExtratoCaixinha: (caixinhaId, perfil) => {
+        const b = get().getBanco(perfil)
+        return b.movimentosCaixinha
+          .filter(m => m.caixinhaId === caixinhaId || m.caixinhaDestinoId === caixinhaId)
+          .sort((a, b2) => b2.data.localeCompare(a.data))
+      },
+      criarCaixinha: (c, depositoInicial, perfil) => {
+        const id = nanoid()
+        const cx: Caixinha = { ...c, id, criadoEm: new Date().toISOString() }
+        setBanco(get, set, perfil, b => ({ ...b, caixinhas: [...b.caixinhas, cx] }))
+        if (depositoInicial && depositoInicial > 0) {
+          get().depositarCaixinha(id, depositoInicial, new Date().toISOString().slice(0, 10), 'Depósito inicial', perfil)
+        }
+      },
+      editarCaixinha: (id, data, perfil) => setBanco(get, set, perfil, b => ({
+        ...b, caixinhas: b.caixinhas.map(c => c.id === id ? { ...c, ...data } : c),
+      })),
+      excluirCaixinha: (id, perfil) => setBanco(get, set, perfil, b => ({
+        // remove a caixinha e seus movimentos; o saldo volta automaticamente ao livre
+        ...b,
+        caixinhas: b.caixinhas.filter(c => c.id !== id),
+        movimentosCaixinha: b.movimentosCaixinha.filter(m => m.caixinhaId !== id && m.caixinhaDestinoId !== id),
+      })),
+      depositarCaixinha: (caixinhaId, valor, data, obs, perfil) => {
+        const s = get()
+        const b = s.getBanco(perfil)
+        const cx = b.caixinhas.find(c => c.id === caixinhaId)
+        if (!cx || valor <= 0) return false
+        // validação: não pode guardar mais que o saldo livre da conta
+        if (valor > s.getSaldoLivreConta(cx.contaId, perfil) + 0.001) return false
+        const mov: MovimentoCaixinha = { id: nanoid(), caixinhaId, tipo: 'deposito', valor, data, observacao: obs }
+        setBanco(get, set, perfil, bb => ({ ...bb, movimentosCaixinha: [...bb.movimentosCaixinha, mov] }))
+        return true
+      },
+      retirarCaixinha: (caixinhaId, valor, data, obs, perfil) => {
+        const s = get()
+        if (valor <= 0 || valor > s.getSaldoCaixinha(caixinhaId, perfil) + 0.001) return false
+        const mov: MovimentoCaixinha = { id: nanoid(), caixinhaId, tipo: 'retirada', valor, data, observacao: obs }
+        setBanco(get, set, perfil, bb => ({ ...bb, movimentosCaixinha: [...bb.movimentosCaixinha, mov] }))
+        return true
+      },
+      transferirEntreCaixinhas: (origemId, destinoId, valor, data, obs, perfil) => {
+        const s = get()
+        if (origemId === destinoId || valor <= 0) return false
+        if (valor > s.getSaldoCaixinha(origemId, perfil) + 0.001) return false
+        const mov: MovimentoCaixinha = { id: nanoid(), caixinhaId: origemId, tipo: 'transferencia', valor, data, observacao: obs, caixinhaDestinoId: destinoId }
+        setBanco(get, set, perfil, bb => ({ ...bb, movimentosCaixinha: [...bb.movimentosCaixinha, mov] }))
+        return true
+      },
+
       registrarTransacao: (t, perfil) => {
         const tx: Transacao = { ...t, id: nanoid() }
         setBanco(get, set, perfil, b => ({ ...b, transacoes: [...b.transacoes, tx] }))
@@ -707,6 +825,12 @@ export const useStore = create<AppState>()(
 
       setOrcamento: (orcamento, perfil) => setControle(get, set, perfil, c => ({ ...c, orcamento })),
       setReservaEmergencia: (valor, perfil) => setControle(get, set, perfil, c => ({ ...c, reservaEmergencia: valor })),
+
+      // ── Preferências de notificação ──────────────────────────────────────────
+      notifPrefs: DEFAULT_NOTIF_PREFS,
+      setNotifPrefs: (data) => set(s => ({ notifPrefs: { ...s.notifPrefs, ...data } })),
+      avisosLidos: [],
+      marcarAvisoLido: (id) => set(s => ({ avisosLidos: s.avisosLidos.includes(id) ? s.avisosLidos : [...s.avisosLidos, id] })),
 
       // ── Selectors consolidados ──────────────────────────────────────────────
       getReceitasMes: (mes, perfil) => {

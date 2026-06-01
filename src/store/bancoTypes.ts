@@ -83,12 +83,41 @@ export interface Recorrente {
   ativo: boolean
 }
 
+// ── Caixinhas (estilo Nubank) ─────────────────────────────────────────────────
+export interface Caixinha {
+  id: string
+  contaId: string
+  nome: string
+  icone: string          // nome do ícone Lucide
+  cor: string
+  meta?: number          // valor alvo opcional
+  dataAlvo?: string      // ISO opcional
+  rende: boolean
+  rendimentoAnual?: number
+  objetivoId?: string    // vínculo com objetivo do simulador
+  criadoEm: string
+}
+
+export type MovimentoCaixinhaTipo = 'deposito' | 'retirada' | 'transferencia'
+
+export interface MovimentoCaixinha {
+  id: string
+  caixinhaId: string
+  tipo: MovimentoCaixinhaTipo
+  valor: number
+  data: string
+  observacao?: string
+  caixinhaDestinoId?: string // para transferência
+}
+
 // ── Banco state (per profile) ─────────────────────────────────────────────────
 export interface BancoState {
   contas: ContaBancaria[]
   transacoes: Transacao[]
   transferencias: Transferencia[]
   recorrentes: Recorrente[]
+  caixinhas: Caixinha[]
+  movimentosCaixinha: MovimentoCaixinha[]
 }
 
 export const emptyBanco = (): BancoState => ({
@@ -96,7 +125,21 @@ export const emptyBanco = (): BancoState => ({
   transacoes: [],
   transferencias: [],
   recorrentes: [],
+  caixinhas: [],
+  movimentosCaixinha: [],
 })
+
+// Ícones disponíveis para caixinhas (nomes Lucide)
+export const CAIXINHA_ICONES = [
+  'PiggyBank', 'Plane', 'Home', 'Car', 'Heart', 'GraduationCap',
+  'Shield', 'Gift', 'Briefcase', 'Smartphone', 'Wrench', 'Landmark',
+  'Sparkles', 'Target', 'Baby', 'PartyPopper',
+]
+
+export const CAIXINHA_CORES = [
+  '#1d9e75', '#3b82f6', '#8b5cf6', '#ec4899', '#ef4444',
+  '#f97316', '#eab308', '#14b8a6', '#06b6d4', '#e8a020',
+]
 
 // ── Orçamento ───────────────────────────────────────────────────────────────
 export interface OrcamentoItem {
