@@ -1,0 +1,78 @@
+@import "tailwindcss";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  body {
+    background-color: #0d1117;
+    color: #e6edf3;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  #root {
+    min-height: 100vh;
+    display: flex;
+  }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #161b22; }
+  ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+}
+
+/* React Flow */
+.react-flow__background { background-color: #0d1117; }
+.react-flow__minimap {
+  background-color: #161b22 !important;
+  border: 1px solid #30363d;
+  border-radius: 8px;
+}
+.react-flow__controls {
+  border: 1px solid #30363d !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+  box-shadow: none !important;
+}
+.react-flow__controls-button {
+  background-color: #161b22 !important;
+  border-color: #30363d !important;
+  color: #e6edf3 !important;
+  width: 28px !important;
+  height: 28px !important;
+}
+.react-flow__controls-button:hover { background-color: #21262d !important; }
+.react-flow__controls-button svg { fill: #e6edf3 !important; }
+
+/* Node animation */
+@keyframes nodeAppear {
+  from { transform: scale(0.6); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+.node-appear { animation: nodeAppear 200ms ease-out forwards; }
+
+/* Glass */
+.glass {
+  background: rgba(22, 27, 34, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(48, 54, 61, 0.9);
+}
+
+/* Edge dash animation */
+@keyframes dashdraw {
+  from { stroke-dashoffset: 10; }
+  to { stroke-dashoffset: 0; }
+}
+
+/* Mobile drawer slide-in */
+@keyframes slidein {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+/* Safe area helpers */
+@supports (padding: max(0px)) {
+  .safe-bottom { padding-bottom: max(env(safe-area-inset-bottom), 0px); }
+}
