@@ -12,7 +12,7 @@ export async function enviarLembreteTeste(email?: string): Promise<NotifResult> 
     return { ok: false, error: 'Supabase não configurado.' }
   }
   try {
-    const { data, error } = await supabase.functions.invoke('enviar-lembretes', {
+    const { data, error } = await supabase.functions.invoke('clever-task', {
       body: { teste: true, email },
     })
     if (error) return { ok: false, error: traduz(error.message) }
