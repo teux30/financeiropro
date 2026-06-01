@@ -1,6 +1,7 @@
 import { Home, Wallet, Receipt, ArrowLeftRight, Menu, Plus } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AppView } from '../../store/useStore'
+import { useUiStore } from '../../store/useUiStore'
 import { useKeyboardOpen } from '../../lib/useKeyboardOpen'
 
 interface Props {
@@ -13,9 +14,10 @@ export function BottomNav({ onMore, onNovaTransacao }: Props) {
   const accent = perfilAtivo === 'pessoal' ? '#1d9e75' : '#e8a020'
   const homeView: AppView = 'dashboard'
   const keyboardOpen = useKeyboardOpen()
+  const modalOpen = useUiStore(s => s.modalCount > 0)
 
-  // teclado aberto: esconde nav + FAB para não flutuarem sobre o teclado
-  if (keyboardOpen) return null
+  // teclado ou modal aberto: esconde nav + FAB para não conflitarem
+  if (keyboardOpen || modalOpen) return null
 
   const go = (v: AppView) => { setActiveProject(null); setActiveView(v) }
 

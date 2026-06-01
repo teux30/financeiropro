@@ -1,5 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+import { useUiStore } from '../../store/useUiStore'
 
 interface ModalProps {
   open: boolean
@@ -16,11 +17,19 @@ export function Modal({ open, onClose, title, children, maxWidth = 'max-w-lg' }:
     return () => document.removeEventListener('keydown', handler)
   }, [open, onClose])
 
+  // registra overlay aberto para esconder bottom nav/FAB
+  useEffect(() => {
+    if (!open) return
+    const ui = useUiStore.getState()
+    ui.openModal()
+    return () => ui.closeModal()
+  }, [open])
+
   if (!open) return null
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center sm:p-4"
+      className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4"
       style={{ background: 'rgba(0,0,0,0.7)' }}
       onClick={onClose}
     >
