@@ -97,7 +97,7 @@ function AppShell() {
 
   if (isFullScreen) {
     return (
-      <div className="flex w-full overflow-hidden" style={{ background: '#0d1117', height: '100dvh' }}>
+      <div className="flex w-full overflow-hidden" style={{ background: '#0a0f0a', height: '100dvh' }}>
         <Suspense fallback={<PageFallback />}>{renderPage()}</Suspense>
         <FAB />
         <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
@@ -109,7 +109,7 @@ function AppShell() {
     <div
       className="flex w-full overflow-hidden"
       style={{
-        background: '#0d1117',
+        background: '#0a0f0a',
         height: '100dvh',
         // Sidebar accent color passed via CSS variable
         ['--accent' as string]: accent,

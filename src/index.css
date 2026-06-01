@@ -22,9 +22,10 @@
     overflow-x: hidden;
     max-width: 100vw;
     overscroll-behavior: none;
+    /* fundo único = cor das páginas, preenche safe areas sem faixa */
+    background-color: #0a0f0a;
   }
   body {
-    background-color: #0d1117;
     color: #e6edf3;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     -webkit-font-smoothing: antialiased;
