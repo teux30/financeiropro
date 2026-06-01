@@ -4,6 +4,9 @@ import './index.css'
 import App from './App.tsx'
 import { registerSW } from 'virtual:pwa-register'
 
+// build stamp (força bundle novo a cada deploy)
+console.info('Finance Pro · build 2026-06-01-ia')
+
 const updateSW = registerSW({
   immediate: true,
   onNeedRefresh() {
