@@ -285,7 +285,7 @@ function MindMapFlow() {
   ]
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden">
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <div className="glass border-b border-[#30363d] flex items-center gap-2 px-4 py-2.5 shrink-0 z-10">
         <button

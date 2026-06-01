@@ -135,8 +135,8 @@ export function Sidebar({ onTrocarPerfil, onOpenSettings, onNavigate, className 
 
   return (
     <aside
-      className={`flex flex-col h-screen w-60 shrink-0 border-r border-[#21262d] bg-[#0d1117] ${className}`}
-      style={{ position: 'sticky', top: 0, transition: 'all 200ms ease' }}
+      className={`flex flex-col w-60 shrink-0 border-r border-[#21262d] bg-[#0d1117] ${className}`}
+      style={{ position: 'sticky', top: 0, height: '100dvh', transition: 'all 200ms ease', paddingTop: 'var(--safe-top)', paddingBottom: 'var(--safe-bottom)' }}
     >
       {/* Logo */}
       <div className="p-4 border-b border-[#21262d]">

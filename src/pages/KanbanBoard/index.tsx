@@ -160,7 +160,7 @@ export function KanbanBoard() {
   const dragCard = cards.find(c => c.id === dragId)
 
   return (
-    <div className="flex-1 flex flex-col h-screen overflow-hidden">
+    <div className="flex-1 flex flex-col h-full overflow-hidden">
       {/* Toolbar */}
       <div className="glass border-b border-[#30363d] flex items-center gap-3 px-4 py-2.5 shrink-0">
         <button

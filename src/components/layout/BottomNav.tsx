@@ -1,6 +1,7 @@
 import { Home, Wallet, Receipt, ArrowLeftRight, Menu, Plus } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AppView } from '../../store/useStore'
+import { useKeyboardOpen } from '../../lib/useKeyboardOpen'
 
 interface Props {
   onMore: () => void
@@ -11,6 +12,10 @@ export function BottomNav({ onMore, onNovaTransacao }: Props) {
   const { perfilAtivo, activeView, setActiveView, setActiveProject } = useStore()
   const accent = perfilAtivo === 'pessoal' ? '#1d9e75' : '#e8a020'
   const homeView: AppView = 'dashboard'
+  const keyboardOpen = useKeyboardOpen()
+
+  // teclado aberto: esconde nav + FAB para não flutuarem sobre o teclado
+  if (keyboardOpen) return null
 
   const go = (v: AppView) => { setActiveProject(null); setActiveView(v) }
 
@@ -25,11 +30,15 @@ export function BottomNav({ onMore, onNovaTransacao }: Props) {
 
   return (
     <>
-      {/* FAB nova transação */}
+      {/* FAB nova transação — acima da bottom nav + safe area */}
       <button
         onClick={onNovaTransacao}
-        className="md:hidden fixed right-4 z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
-        style={{ bottom: 'calc(76px + env(safe-area-inset-bottom, 0px))', background: accent }}
+        className="md:hidden fixed z-40 w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
+        style={{
+          right: 'calc(1rem + var(--safe-right))',
+          bottom: 'calc(var(--bottomnav-h) + var(--safe-bottom) + 16px)',
+          background: accent,
+        }}
         aria-label="Nova transação"
       >
         <Plus size={26} className="text-white" />
@@ -40,7 +49,9 @@ export function BottomNav({ onMore, onNovaTransacao }: Props) {
         style={{
           background: 'rgba(10,15,10,0.95)', backdropFilter: 'blur(12px)',
           borderColor: 'rgba(255,255,255,0.08)',
-          paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+          paddingBottom: 'var(--safe-bottom)',
+          paddingLeft: 'var(--safe-left)',
+          paddingRight: 'var(--safe-right)',
         }}
       >
         {items.map(it => {

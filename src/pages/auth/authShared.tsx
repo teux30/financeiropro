@@ -4,7 +4,7 @@ import { TrendingUp } from 'lucide-react'
 /** Wrapper visual compartilhado pelas telas de auth */
 export function AuthShell({ title, subtitle, children }: { title: string; subtitle: string; children: ReactNode }) {
   return (
-    <div className="min-h-screen w-full flex items-center justify-center p-4" style={{ background: '#0a0f0a' }}>
+    <div className="w-full flex items-center justify-center p-4" style={{ background: '#0a0f0a', minHeight: '100dvh', paddingTop: 'calc(1rem + var(--safe-top))', paddingBottom: 'calc(1rem + var(--safe-bottom))' }}>
       <div className="w-full max-w-sm flex flex-col gap-6">
         {/* Logo */}
         <div className="flex flex-col items-center gap-3">

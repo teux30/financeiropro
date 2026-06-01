@@ -97,7 +97,7 @@ function AppShell() {
 
   if (isFullScreen) {
     return (
-      <div className="flex w-full h-screen overflow-hidden" style={{ background: '#0d1117' }}>
+      <div className="flex w-full overflow-hidden" style={{ background: '#0d1117', height: '100dvh' }}>
         <Suspense fallback={<PageFallback />}>{renderPage()}</Suspense>
         <FAB />
         <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
@@ -107,9 +107,10 @@ function AppShell() {
 
   return (
     <div
-      className="flex w-full min-h-screen"
+      className="flex w-full overflow-hidden"
       style={{
         background: '#0d1117',
+        height: '100dvh',
         // Sidebar accent color passed via CSS variable
         ['--accent' as string]: accent,
       }}
@@ -140,7 +141,7 @@ function AppShell() {
           onTrocarPerfil={() => setShowProfileSelector(true)}
           onOpenSettings={() => setShowSettings(true)}
         />
-        <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto scroll-area">
           <Suspense fallback={<PageFallback />}>{renderPage()}</Suspense>
         </main>
       </div>

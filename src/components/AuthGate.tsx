@@ -52,7 +52,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
 function Splash() {
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center gap-4" style={{ background: '#0a0f0a' }}>
+    <div className="w-full flex flex-col items-center justify-center gap-4" style={{ background: '#0a0f0a', minHeight: '100dvh' }}>
       <div className="w-16 h-16 rounded-2xl flex items-center justify-center animate-pulse"
         style={{ background: 'linear-gradient(135deg, #1d9e75, #10b981)' }}>
         <TrendingUp size={32} className="text-white" />

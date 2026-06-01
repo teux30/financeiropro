@@ -25,14 +25,18 @@ export function Header({ onTrocarPerfil, onOpenSettings }: HeaderProps) {
 
   return (
     <header
-      className="flex items-center justify-between px-4 h-13 shrink-0 sticky top-0 z-30"
+      className="flex items-center justify-between shrink-0 sticky top-0 z-30"
       style={{
         background: 'rgba(13,17,23,0.92)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
         borderBottom: `1px solid ${accent}33`,
         transition: 'border-color 300ms ease',
-        height: 52,
+        // altura visual + safe area do topo (Dynamic Island)
+        paddingTop: 'var(--safe-top)',
+        paddingLeft: 'calc(1rem + var(--safe-left))',
+        paddingRight: 'calc(1rem + var(--safe-right))',
+        height: 'calc(52px + var(--safe-top))',
       }}
     >
       {/* Left */}
