@@ -1,4 +1,4 @@
-import { TrendingUp, User, Building2, ArrowLeftRight, Settings, LogOut } from 'lucide-react'
+import { TrendingUp, User, Building2, ArrowLeftRight, Settings, LogOut, StickyNote } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { useAuthStore } from '../../store/useAuthStore'
 import { isSupabaseConfigured } from '../../lib/supabase'
@@ -13,7 +13,7 @@ interface HeaderProps {
 const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
 
 export function Header({ onTrocarPerfil, onOpenSettings }: HeaderProps) {
-  const { perfilAtivo, usuario, getEmpresaAtiva } = useStore()
+  const { perfilAtivo, usuario, getEmpresaAtiva, setActiveView, setActiveProject } = useStore()
   const logout = useAuthStore(s => s.logout)
   const empresa = getEmpresaAtiva()
   const isPessoal = perfilAtivo === 'pessoal'
@@ -65,6 +65,13 @@ export function Header({ onTrocarPerfil, onOpenSettings }: HeaderProps) {
       {/* Right */}
       <div className="flex items-center gap-2">
         <SyncStatus />
+        <button
+          onClick={() => { setActiveProject(null); setActiveView('notas') }}
+          className="p-1.5 rounded-lg transition-colors text-[#8b949e] hover:text-[#e6edf3] hover:bg-[#21262d]"
+          title="Bloco de notas"
+        >
+          <StickyNote size={15} />
+        </button>
         <NotificationBell />
 
         {!isPessoal && (

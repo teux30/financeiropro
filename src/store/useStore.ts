@@ -17,6 +17,7 @@ import type {
   Caixinha, MovimentoCaixinha,
 } from './bancoTypes'
 import { emptyBanco, emptyControle } from './bancoTypes'
+import type { Nota } from './notasTypes'
 import type { Objetivo, AporteReal } from './objetivoTypes'
 import { patrimonioAlvo } from './objetivoTypes'
 import { totalGuardado, progressoPercentual } from './objetivoSelectors'
@@ -24,6 +25,7 @@ import { buildProjecao } from '../pages/Simulador/math'
 
 export type { Empresa, Separacao, FluxoLancamento, Conta, Funcionario, Insumo, MovimentoEstoque, DREPeriodo }
 export type { Entregador, RegistroEntrega, PagamentoEntregador }
+export type { Nota }
 export type { BancoState, ControleFinanceiro, ContaBancaria, Transacao, Transferencia, Recorrente, CategoriaFin, OrcamentoItem }
 export type { Caixinha, MovimentoCaixinha }
 export type { Objetivo, AporteReal }
@@ -51,7 +53,7 @@ export type AppView =
   | 'empresa_dashboard' | 'empresa_dre' | 'empresa_fluxo'
   | 'empresa_pagar' | 'empresa_receber' | 'empresa_indicadores'
   | 'empresa_rh' | 'empresa_estoque' | 'empresa_entregadores'
-  | 'separacao'
+  | 'separacao' | 'notas'
   // Banking + financial control (work in both profiles)
   | 'contas' | 'conta_detalhe' | 'transacoes' | 'transferencias'
   | 'controle_financeiro'
@@ -71,6 +73,7 @@ export const VIEW_PROFILE: Record<AppView, 'pessoal' | 'empresa' | 'ambos'> = {
   transferencias: 'ambos',
   controle_financeiro: 'ambos',
   projects: 'ambos',
+  notas: 'ambos',
   // pessoais
   simulador: 'pessoal',
   diary: 'pessoal',
@@ -207,6 +210,18 @@ function setBanco(get: GetFn, set: SetFn, perfil: Perfil | undefined, fn: (b: Ba
         e.id === empId ? { ...e, banco: fn(normBanco(e.banco)) } : e
       ),
     })
+  }
+}
+
+function setNotas(get: GetFn, set: SetFn, perfil: Perfil | undefined, fn: (list: Nota[]) => Nota[]) {
+  const s = get()
+  const p = perfil ?? s.perfilAtivo
+  if (p === 'pessoal') {
+    set({ notasPessoal: fn(s.notasPessoal ?? []) })
+  } else {
+    const empId = s.empresaAtivaId ?? s.empresas[0]?.id
+    if (!empId) return
+    set({ empresas: s.empresas.map(e => e.id === empId ? { ...e, notas: fn(e.notas ?? []) } : e) })
   }
 }
 
@@ -438,6 +453,14 @@ interface AppState {
   setNotifPrefs: (data: Partial<NotifPrefs>) => void
   avisosLidos: string[]   // ids de avisos dispensados in-app
   marcarAvisoLido: (id: string) => void
+
+  // ── Bloco de Notas (isolado por perfil) ──────────────────────────────────────
+  notasPessoal: Nota[]
+  getNotas: (perfil?: Perfil) => Nota[]
+  criarNota: (n: Omit<Nota, 'id' | 'criadaEm' | 'atualizadaEm'>, perfil?: Perfil) => Nota
+  atualizarNota: (id: string, data: Partial<Nota>, perfil?: Perfil) => void
+  excluirNota: (id: string, perfil?: Perfil) => void
+  getLembretesProximos: (perfil?: Perfil) => Nota[]
 
   // ── Selectors consolidados ──────────────────────────────────────────────────
   getReceitasMes: (mes: string, perfil?: Perfil) => number   // mes = 'YYYY-MM'
@@ -933,6 +956,32 @@ export const useStore = create<AppState>()(
       setNotifPrefs: (data) => set(s => ({ notifPrefs: { ...s.notifPrefs, ...data } })),
       avisosLidos: [],
       marcarAvisoLido: (id) => set(s => ({ avisosLidos: s.avisosLidos.includes(id) ? s.avisosLidos : [...s.avisosLidos, id] })),
+
+      // ── Bloco de Notas ────────────────────────────────────────────────────────
+      notasPessoal: [],
+      getNotas: (perfil) => {
+        const s = get()
+        const p = perfil ?? s.perfilAtivo
+        if (p === 'pessoal') return s.notasPessoal ?? []
+        const emp = s.getEmpresaAtiva()
+        return emp?.notas ?? []
+      },
+      criarNota: (n, perfil) => {
+        const now = new Date().toISOString()
+        const nota: Nota = { ...n, id: nanoid(), criadaEm: now, atualizadaEm: now }
+        setNotas(get, set, perfil, list => [nota, ...list])
+        return nota
+      },
+      atualizarNota: (id, data, perfil) =>
+        setNotas(get, set, perfil, list => list.map(x => x.id === id ? { ...x, ...data, atualizadaEm: new Date().toISOString() } : x)),
+      excluirNota: (id, perfil) =>
+        setNotas(get, set, perfil, list => list.filter(x => x.id !== id)),
+      getLembretesProximos: (perfil) => {
+        const notas = get().getNotas(perfil)
+        return notas
+          .filter(n => n.tipo === 'lembrete' && n.dataLembrete && !n.lembreteResolvido && !n.arquivada)
+          .sort((a, b) => (a.dataLembrete ?? '').localeCompare(b.dataLembrete ?? ''))
+      },
 
       // ── Selectors consolidados ──────────────────────────────────────────────
       getReceitasMes: (mes, perfil) => {

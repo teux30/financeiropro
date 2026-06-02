@@ -28,6 +28,7 @@ const IndicadoresPage = lazy(() => import('./pages/empresa/Indicadores'))
 const RHPage          = lazy(() => import('./pages/empresa/RH').then(m => ({ default: m.RHPage })))
 const EstoquePage     = lazy(() => import('./pages/empresa/Estoque').then(m => ({ default: m.EstoquePage })))
 const EntregadoresPage = lazy(() => import('./pages/empresa/Entregadores').then(m => ({ default: m.EntregadoresPage })))
+const NotasPage = lazy(() => import('./pages/NotasPage').then(m => ({ default: m.NotasPage })))
 const SeparacaoPage   = lazy(() => import('./pages/Separacao').then(m => ({ default: m.SeparacaoPage })))
 const ContasPage      = lazy(() => import('./pages/banco/ContasPage').then(m => ({ default: m.ContasPage })))
 const ContaDetalhe    = lazy(() => import('./pages/banco/ContaDetalhe').then(m => ({ default: m.ContaDetalhe })))
@@ -91,6 +92,7 @@ function AppShell() {
       case 'controle_financeiro': return <ControleFinanceiro />
       // Shared
       case 'separacao':    return <SeparacaoPage />
+      case 'notas':        return <NotasPage />
       default:
         return <Dashboard />
     }

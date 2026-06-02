@@ -4,7 +4,7 @@ import {
 } from 'recharts'
 import {
   User, Building2, ArrowRight, TrendingUp, Target, Sparkles, Wallet, ArrowLeftRight,
-  Eye, EyeOff, PiggyBank, AlertTriangle, Clock, Calendar, CheckCircle2,
+  Eye, EyeOff, PiggyBank, AlertTriangle, Clock, Calendar, CheckCircle2, StickyNote,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import { fmtBRL, fmtBRLshort, maskSaldo } from '../lib/format'
@@ -153,8 +153,16 @@ export function Dashboard() {
       const novas = quickIdeas.filter(i => i.status === 'new').length
       if (novas > 0) out.push({ icon: Sparkles, cor: '#e8a020', texto: `${novas} ideia(s) nova(s) para processar` })
     }
+    // Lembretes do Bloco de Notas (perfil ativo) — próximos 3 dias
+    s.getLembretesProximos().slice(0, 3).forEach(n => {
+      const d = daysUntil(n.dataLembrete!)
+      if (d <= 3) {
+        const quando = d < 0 ? 'atrasado' : d === 0 ? 'hoje' : d === 1 ? 'amanhã' : `em ${d}d`
+        out.push({ icon: StickyNote, cor: d < 0 ? '#ef4444' : '#3b82f6', texto: `Lembrete ${quando}: ${n.titulo || n.texto.slice(0, 40)}` })
+      }
+    })
     return out
-  }, [emp, objPrincipal, objData, quickIdeas, verEmpresa, verPessoal])
+  }, [emp, objPrincipal, objData, quickIdeas, verEmpresa, verPessoal, s])
 
   const Mask = (v: number) => maskSaldo(fmtBRL(v), ocultarSaldos)
   const MaskS = (v: number) => maskSaldo(fmtBRLshort(v), ocultarSaldos)

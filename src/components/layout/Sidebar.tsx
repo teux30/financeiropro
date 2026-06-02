@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Calculator, Brain, BookOpen, ArrowLeftRight,
   BarChart3, Package, Users, Activity,
   ArrowDownCircle, ArrowUpCircle, TrendingUp, ChevronRight,
-  Settings, Wallet, Receipt, CreditCard, Building2, Bike,
+  Settings, Wallet, Receipt, CreditCard, Building2, Bike, StickyNote,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AppView } from '../../store/useStore'
@@ -44,6 +44,7 @@ const PESSOAL_NAV: NavSection[] = [
   {
     title: 'Planejamento',
     items: [
+      { id: 'notas', label: 'Bloco de Notas', icon: StickyNote },
       { id: 'projects', label: 'Mapa Mental', icon: Brain },
       { id: 'diary', label: 'Diário de Ideias', icon: BookOpen },
     ],
@@ -104,6 +105,7 @@ const EMPRESA_NAV: NavSection[] = [
   {
     title: 'Planejamento',
     items: [
+      { id: 'notas', label: 'Bloco de Notas', icon: StickyNote },
       { id: 'projects', label: 'Mapa Mental', icon: Brain },
       { id: 'separacao', label: 'Separação Financeira', icon: TrendingUp },
     ],

@@ -156,6 +156,7 @@ export interface Empresa {
   entregadores?: Entregador[]
   registrosEntrega?: RegistroEntrega[]
   pagamentosEntregador?: PagamentoEntregador[]
+  notas?: import('./notasTypes').Nota[]
 }
 
 // ── Helpers de semana (segunda a domingo) ─────────────────────────────────────
