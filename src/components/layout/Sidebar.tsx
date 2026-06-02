@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Calculator, Brain, BookOpen, ArrowLeftRight,
   BarChart3, Package, Users, Activity,
   ArrowDownCircle, ArrowUpCircle, TrendingUp, ChevronRight,
-  Settings, Wallet, Receipt, CreditCard, Building2,
+  Settings, Wallet, Receipt, CreditCard, Building2, Bike,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AppView } from '../../store/useStore'
@@ -92,6 +92,7 @@ const EMPRESA_NAV: NavSection[] = [
     title: 'Equipe',
     items: [
       { id: 'empresa_rh', label: 'RH e Funcionários', icon: Users },
+      { id: 'empresa_entregadores', label: 'Entregadores', icon: Bike },
     ],
   },
   {

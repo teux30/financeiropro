@@ -84,6 +84,49 @@ export interface MovimentoEstoque {
   observacao?: string
 }
 
+// ── Entregadores (delivery) ───────────────────────────────────────────────────
+export interface Entregador {
+  id: string
+  nome: string
+  tipo: 'fixo' | 'eventual'
+  contato?: string
+  pix?: string
+  cpf?: string
+  veiculo?: 'moto' | 'bike' | 'carro' | 'outro'
+  valorFixoSemanal: number
+  valorPorEntrega: number
+  observacoes?: string
+  status: 'ativo' | 'inativo'
+  criadoEm: string
+}
+
+export interface RegistroEntrega {
+  id: string
+  entregadorId: string
+  data: string          // ISO
+  quantidade: number
+  bonus?: number
+  desconto?: number
+  observacao?: string
+}
+
+export interface PagamentoEntregador {
+  id: string
+  entregadorId: string
+  semanaInicio: string  // ISO (segunda)
+  semanaFim: string     // ISO (domingo)
+  valorFixo: number
+  totalEntregas: number
+  valorEntregas: number
+  bonus: number
+  desconto: number
+  totalPago: number
+  contaId?: string
+  status: 'pendente' | 'pago'
+  dataPagamento?: string
+  transacaoId?: string
+}
+
 // ── Empresa ─────────────────────────────────────────────────────────────────
 export interface EmpresaMetas {
   faturamento: number
@@ -110,6 +153,23 @@ export interface Empresa {
   banco?: import('./bancoTypes').BancoState
   controleFinanceiro?: import('./bancoTypes').ControleFinanceiro
   centroCustos?: { area: string; cor: string }[]
+  entregadores?: Entregador[]
+  registrosEntrega?: RegistroEntrega[]
+  pagamentosEntregador?: PagamentoEntregador[]
+}
+
+// ── Helpers de semana (segunda a domingo) ─────────────────────────────────────
+export function inicioSemana(iso: string): string {
+  const d = new Date(iso.slice(0, 10) + 'T00:00:00')
+  const day = d.getDay() // 0=dom
+  const diff = day === 0 ? -6 : 1 - day // volta até segunda
+  d.setDate(d.getDate() + diff)
+  return d.toISOString().slice(0, 10)
+}
+export function fimSemana(iso: string): string {
+  const ini = new Date(inicioSemana(iso) + 'T00:00:00')
+  ini.setDate(ini.getDate() + 6)
+  return ini.toISOString().slice(0, 10)
 }
 
 // ── Separação ───────────────────────────────────────────────────────────────

@@ -8,7 +8,8 @@ import type {
 import type {
   Empresa, Separacao, UsuarioPessoal,
   FluxoLancamento, Conta, Funcionario,
-  Insumo, MovimentoEstoque, DREPeriodo
+  Insumo, MovimentoEstoque, DREPeriodo,
+  Entregador, RegistroEntrega, PagamentoEntregador,
 } from './empresaTypes'
 import type {
   BancoState, ControleFinanceiro, ContaBancaria, Transacao,
@@ -22,6 +23,7 @@ import { totalGuardado, progressoPercentual } from './objetivoSelectors'
 import { buildProjecao } from '../pages/Simulador/math'
 
 export type { Empresa, Separacao, FluxoLancamento, Conta, Funcionario, Insumo, MovimentoEstoque, DREPeriodo }
+export type { Entregador, RegistroEntrega, PagamentoEntregador }
 export type { BancoState, ControleFinanceiro, ContaBancaria, Transacao, Transferencia, Recorrente, CategoriaFin, OrcamentoItem }
 export type { Caixinha, MovimentoCaixinha }
 export type { Objetivo, AporteReal }
@@ -48,7 +50,7 @@ export type AppView =
   | 'dashboard' | 'projects' | 'editor' | 'kanban' | 'diary' | 'simulador'
   | 'empresa_dashboard' | 'empresa_dre' | 'empresa_fluxo'
   | 'empresa_pagar' | 'empresa_receber' | 'empresa_indicadores'
-  | 'empresa_rh' | 'empresa_estoque'
+  | 'empresa_rh' | 'empresa_estoque' | 'empresa_entregadores'
   | 'separacao'
   // Banking + financial control (work in both profiles)
   | 'contas' | 'conta_detalhe' | 'transacoes' | 'transferencias'
@@ -83,6 +85,7 @@ export const VIEW_PROFILE: Record<AppView, 'pessoal' | 'empresa' | 'ambos'> = {
   empresa_indicadores: 'empresa',
   empresa_rh: 'empresa',
   empresa_estoque: 'empresa',
+  empresa_entregadores: 'empresa',
 }
 
 export function viewPermitida(view: AppView, perfil: Perfil): boolean {
@@ -364,6 +367,14 @@ interface AppState {
   excluirInsumo: (empresaId: string, id: string) => void
   adicionarMovimento: (empresaId: string, m: Omit<MovimentoEstoque, 'id'>) => void
 
+  // Entregadores
+  adicionarEntregador: (empresaId: string, e: Omit<Entregador, 'id' | 'criadoEm'>) => void
+  atualizarEntregador: (empresaId: string, id: string, data: Partial<Entregador>) => void
+  excluirEntregador: (empresaId: string, id: string) => void
+  registrarEntrega: (empresaId: string, r: Omit<RegistroEntrega, 'id'>) => void
+  excluirRegistroEntrega: (empresaId: string, id: string) => void
+  pagarEntregador: (empresaId: string, pag: Omit<PagamentoEntregador, 'id' | 'status' | 'dataPagamento' | 'transacaoId'>) => void
+
   // Separação
   separacao: Separacao
   setSeparacao: (data: Partial<Separacao>) => void
@@ -640,6 +651,47 @@ export const useStore = create<AppState>()(
       atualizarInsumo: (empresaId, id, data) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({ ...e, insumos: e.insumos.map(i => i.id === id ? { ...i, ...data } : i) })) })),
       excluirInsumo: (empresaId, id) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({ ...e, insumos: e.insumos.filter(i => i.id !== id) })) })),
       adicionarMovimento: (empresaId, m) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({ ...e, movimentosEstoque: [...e.movimentosEstoque, { ...m, id: nanoid() }] })) })),
+
+      // ── Entregadores ─────────────────────────────────────────────────────────
+      adicionarEntregador: (empresaId, ent) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({ ...e, entregadores: [...(e.entregadores ?? []), { ...ent, id: nanoid(), criadoEm: new Date().toISOString() }] })) })),
+      atualizarEntregador: (empresaId, id, data) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({ ...e, entregadores: (e.entregadores ?? []).map(x => x.id === id ? { ...x, ...data } : x) })) })),
+      excluirEntregador: (empresaId, id) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({
+        ...e,
+        entregadores: (e.entregadores ?? []).filter(x => x.id !== id),
+        registrosEntrega: (e.registrosEntrega ?? []).filter(r => r.entregadorId !== id),
+        pagamentosEntregador: (e.pagamentosEntregador ?? []).filter(p => p.entregadorId !== id),
+      })) })),
+      registrarEntrega: (empresaId, r) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({ ...e, registrosEntrega: [...(e.registrosEntrega ?? []), { ...r, id: nanoid() }] })) })),
+      excluirRegistroEntrega: (empresaId, id) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({ ...e, registrosEntrega: (e.registrosEntrega ?? []).filter(r => r.id !== id) })) })),
+      pagarEntregador: (empresaId, pag) => {
+        const s = get()
+        const emp = s.empresas.find(e => e.id === empresaId)
+        if (!emp) return
+        const ent = (emp.entregadores ?? []).find(e => e.id === pag.entregadorId)
+        // gera transação de saída na conta PJ escolhida (categoria folha / delivery)
+        let transacaoId: string | undefined
+        if (pag.contaId && pag.totalPago > 0) {
+          const tx = s.registrarTransacao({
+            contaId: pag.contaId, tipo: 'saida', valor: pag.totalPago,
+            descricao: `Pagamento entregador${ent ? `: ${ent.nome}` : ''}`,
+            categoria: 'folha', data: new Date().toISOString().slice(0, 10),
+            recorrente: false, origemAuto: 'manual',
+          }, 'empresa')
+          transacaoId = tx.id
+        }
+        const pagamento: PagamentoEntregador = {
+          ...pag, id: nanoid(), status: 'pago',
+          dataPagamento: new Date().toISOString().slice(0, 10), transacaoId,
+        }
+        set(prev => ({ empresas: updEmpresa(prev.empresas, empresaId, e => ({
+          ...e,
+          // remove pagamento anterior da mesma semana/entregador (re-pagamento) e adiciona o novo
+          pagamentosEntregador: [
+            ...(e.pagamentosEntregador ?? []).filter(p => !(p.entregadorId === pag.entregadorId && p.semanaInicio === pag.semanaInicio)),
+            pagamento,
+          ],
+        })) }))
+      },
 
       // Separação
       separacao: DEFAULT_SEPARACAO,
