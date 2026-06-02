@@ -141,17 +141,31 @@ function gerarObjetivoNodes(o: Objetivo, aportes: AporteReal[]): { nodes: Node<M
 type GetFn = () => AppState
 type SetFn = (partial: Partial<AppState> | ((s: AppState) => Partial<AppState>)) => void
 
+// Garante que um banco persistido (possivelmente antigo) tenha todos os arrays
+function normBanco(b?: BancoState): BancoState {
+  const e = emptyBanco()
+  if (!b) return e
+  return {
+    contas: b.contas ?? e.contas,
+    transacoes: b.transacoes ?? e.transacoes,
+    transferencias: b.transferencias ?? e.transferencias,
+    recorrentes: b.recorrentes ?? e.recorrentes,
+    caixinhas: b.caixinhas ?? e.caixinhas,
+    movimentosCaixinha: b.movimentosCaixinha ?? e.movimentosCaixinha,
+  }
+}
+
 function setBanco(get: GetFn, set: SetFn, perfil: Perfil | undefined, fn: (b: BancoState) => BancoState) {
   const s = get()
   const p = perfil ?? s.perfilAtivo
   if (p === 'pessoal') {
-    set({ bancoPessoal: fn(s.bancoPessoal ?? emptyBanco()) })
+    set({ bancoPessoal: fn(normBanco(s.bancoPessoal)) })
   } else {
     const empId = s.empresaAtivaId ?? s.empresas[0]?.id
     if (!empId) return
     set({
       empresas: s.empresas.map(e =>
-        e.id === empId ? { ...e, banco: fn(e.banco ?? emptyBanco()) } : e
+        e.id === empId ? { ...e, banco: fn(normBanco(e.banco)) } : e
       ),
     })
   }
@@ -608,9 +622,9 @@ export const useStore = create<AppState>()(
       getBanco: (perfil) => {
         const s = get()
         const p = perfil ?? s.perfilAtivo
-        if (p === 'pessoal') return s.bancoPessoal
+        if (p === 'pessoal') return normBanco(s.bancoPessoal)
         const emp = s.getEmpresaAtiva()
-        return emp?.banco ?? emptyBanco()
+        return normBanco(emp?.banco)
       },
       getControle: (perfil) => {
         const s = get()
