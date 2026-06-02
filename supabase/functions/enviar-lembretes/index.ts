@@ -35,7 +35,9 @@ const textoUrg = (dias: number) =>
 
 const corUrg = (dias: number) => (dias <= 0 ? '#ef4444' : dias <= 2 ? '#e8a020' : '#3b82f6')
 
-function montarHtml(nome: string, avisos: Aviso[]): string {
+interface Lembrete { titulo: string; quando: string; dias: number; perfil: string }
+
+function montarHtml(nome: string, avisos: Aviso[], lembretes: Lembrete[] = []): string {
   const linhas = avisos.map(a => `
     <tr>
       <td style="padding:12px 16px;border-bottom:1px solid #21262d;color:#e6edf3;font-size:14px">
@@ -50,12 +52,25 @@ function montarHtml(nome: string, avisos: Aviso[]): string {
 
   const total = avisos.reduce((s, a) => s + a.valor, 0)
 
-  return `<!doctype html><html><body style="margin:0;background:#0a0f0a;font-family:-apple-system,Segoe UI,Roboto,sans-serif">
-  <div style="max-width:560px;margin:0 auto;padding:24px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
-      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#1d9e75,#10b981)"></div>
-      <span style="color:#fff;font-size:18px;font-weight:700">Finance Pro</span>
-    </div>
+  const blocoLembretes = lembretes.length === 0 ? '' : `
+    <div style="background:#141a14;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;margin-top:16px">
+      <div style="padding:16px;border-bottom:1px solid #21262d">
+        <h2 style="margin:0;color:#e6edf3;font-size:15px">📝 ${lembretes.length} lembrete(s) do Bloco de Notas</h2>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        ${lembretes.map(l => `
+        <tr>
+          <td style="padding:12px 16px;border-bottom:1px solid #21262d;color:#e6edf3;font-size:14px">
+            <strong>${l.titulo}</strong><br><span style="color:#8b949e;font-size:12px">${l.perfil}</span>
+          </td>
+          <td style="padding:12px 16px;border-bottom:1px solid #21262d;text-align:right;white-space:nowrap">
+            <span style="color:${corUrg(l.dias)};font-size:12px;font-weight:600">${l.quando}</span>
+          </td>
+        </tr>`).join('')}
+      </table>
+    </div>`
+
+  const blocoContas = avisos.length === 0 ? '' : `
     <div style="background:#141a14;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden">
       <div style="padding:20px 16px;border-bottom:1px solid #21262d">
         <h1 style="margin:0;color:#e6edf3;font-size:18px">Olá${nome ? ', ' + nome : ''}! 👋</h1>
@@ -66,9 +81,19 @@ function montarHtml(nome: string, avisos: Aviso[]): string {
         <span style="color:#8b949e;font-size:13px">Total</span>
         <strong style="color:#e6edf3;font-size:16px">${fmtBRL(total)}</strong>
       </div>
-      <div style="padding:0 16px 20px">
-        <a href="${APP_URL}" style="display:block;text-align:center;background:#1d9e75;color:#fff;text-decoration:none;padding:12px;border-radius:10px;font-weight:600;font-size:14px">Ver no app</a>
-      </div>
+    </div>`
+
+  return `<!doctype html><html><body style="margin:0;background:#0a0f0a;font-family:-apple-system,Segoe UI,Roboto,sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:24px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
+      <div style="width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#1d9e75,#10b981)"></div>
+      <span style="color:#fff;font-size:18px;font-weight:700">Finance Pro</span>
+    </div>
+    ${avisos.length === 0 ? `<h1 style="margin:0 0 12px;color:#e6edf3;font-size:18px">Olá${nome ? ', ' + nome : ''}! 👋</h1>` : ''}
+    ${blocoContas}
+    ${blocoLembretes}
+    <div style="margin-top:16px">
+      <a href="${APP_URL}" style="display:block;text-align:center;background:#1d9e75;color:#fff;text-decoration:none;padding:12px;border-radius:10px;font-weight:600;font-size:14px">Ver no app</a>
     </div>
     <p style="color:#484f58;font-size:12px;text-align:center;margin-top:16px">
       Você recebe isto porque ativou avisos no Finance Pro. Gerencie em Configurações → Avisos.
@@ -105,7 +130,10 @@ Deno.serve(async (req) => {
         { descricao: 'Conta de energia', valor: 480.5, vencimento: new Date(Date.now() + 86400000).toISOString().slice(0, 10), dias: 1, empresa: 'Minha Empresa' },
         { descricao: 'Fornecedor de insumos', valor: 1250, vencimento: new Date().toISOString().slice(0, 10), dias: 0, empresa: 'Minha Empresa' },
       ]
-      await enviarEmail(dest, '🔔 Teste — contas a vencer (Finance Pro)', montarHtml(userData?.user?.user_metadata?.nome ?? '', exemplo))
+      const exemploLembretes: Lembrete[] = [
+        { titulo: 'Ligar para o contador', quando: 'vence amanhã', dias: 1, perfil: 'Pessoal' },
+      ]
+      await enviarEmail(dest, '🔔 Teste — avisos (Finance Pro)', montarHtml(userData?.user?.user_metadata?.nome ?? '', exemplo, exemploLembretes))
       return new Response(JSON.stringify({ ok: true, modo: 'teste', enviadoPara: dest }), { headers: { ...cors, 'Content-Type': 'application/json' } })
     }
 
@@ -125,7 +153,11 @@ Deno.serve(async (req) => {
       if (!dest) continue
 
       // contas a vencer no snapshot (profiles.data → empresas[].contasPagar)
-      const snap = p.data as { empresas?: { id: string; nome: string; contasPagar?: { id: string; descricao: string; valor: number; vencimento: string; status: string }[] }[] }
+      type NotaSnap = { id: string; tipo: string; titulo?: string; texto?: string; dataLembrete?: string; lembreteResolvido?: boolean; arquivada?: boolean }
+      const snap = p.data as {
+        notasPessoal?: NotaSnap[]
+        empresas?: { id: string; nome: string; contasPagar?: { id: string; descricao: string; valor: number; vencimento: string; status: string }[]; notas?: NotaSnap[] }[]
+      }
       const avisos: { aviso: Aviso; contaId: string; nivel: number }[] = []
       for (const emp of snap?.empresas ?? []) {
         for (const c of emp.contasPagar ?? []) {
@@ -141,15 +173,42 @@ Deno.serve(async (req) => {
           avisos.push({ aviso: { descricao: c.descricao, valor: c.valor, vencimento: c.vencimento, dias, empresa: emp.nome }, contaId: c.id, nivel })
         }
       }
-      if (avisos.length === 0) continue
 
-      await enviarEmail(dest, `🔔 ${avisos.length} conta(s) a vencer — Finance Pro`,
-        montarHtml((p as { data?: { usuario?: { nome?: string } } }).data?.usuario?.nome ?? '', avisos.map(a => a.aviso)))
+      // lembretes do Bloco de Notas (pessoal + cada empresa)
+      const lembretes: { lembrete: Lembrete; notaId: string; nivel: number }[] = []
+      const coletarNotas = (notas: NotaSnap[] | undefined, perfil: string) => {
+        for (const n of notas ?? []) {
+          if (n.tipo !== 'lembrete' || !n.dataLembrete || n.lembreteResolvido || n.arquivada) continue
+          const dias = diasAte(n.dataLembrete)
+          if (dias > janela) continue
+          const nivel = antecedencias.filter(a => dias <= a).sort((x, y) => x - y)[0] ?? 0
+          lembretes.push({ lembrete: { titulo: n.titulo || (n.texto ?? '').slice(0, 50) || 'Lembrete', quando: textoUrg(dias), dias, perfil }, notaId: n.id, nivel })
+        }
+      }
+      coletarNotas(snap?.notasPessoal, 'Pessoal')
+      for (const emp of snap?.empresas ?? []) coletarNotas(emp.notas, emp.nome)
+
+      // remove lembretes já enviados neste nível
+      const lembretesNovos: typeof lembretes = []
+      for (const l of lembretes) {
+        const { data: reg } = await sb.from('registro_notificacoes')
+          .select('id').eq('user_id', p.id).eq('conta_id', `nota:${l.notaId}`).eq('nivel_aviso', l.nivel).maybeSingle()
+        if (!reg) lembretesNovos.push(l)
+      }
+
+      if (avisos.length === 0 && lembretesNovos.length === 0) continue
+
+      const totalItens = avisos.length + lembretesNovos.length
+      await enviarEmail(dest, `🔔 ${totalItens} aviso(s) — Finance Pro`,
+        montarHtml((p as { data?: { usuario?: { nome?: string } } }).data?.usuario?.nome ?? '', avisos.map(a => a.aviso), lembretesNovos.map(l => l.lembrete)))
       enviados++
 
       // marca como notificadas
       for (const a of avisos) {
         await sb.from('registro_notificacoes').insert({ user_id: p.id, conta_id: a.contaId, nivel_aviso: a.nivel })
+      }
+      for (const l of lembretesNovos) {
+        await sb.from('registro_notificacoes').insert({ user_id: p.id, conta_id: `nota:${l.notaId}`, nivel_aviso: l.nivel })
       }
     }
 

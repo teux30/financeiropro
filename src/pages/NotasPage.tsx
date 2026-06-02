@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import {
   StickyNote, Plus, Search, Pin, Trash2, Pencil, Check, X, Archive,
-  Bell, Calendar, ListChecks, FileText, DollarSign, Sparkles, ArchiveRestore,
+  Bell, Calendar, ListChecks, FileText, DollarSign, Sparkles, ArchiveRestore, Brain,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
 import type { Nota, NotaTipo, ChecklistItemNota } from '../store/notasTypes'
@@ -22,9 +22,10 @@ const TIPO_ICON: Record<NotaTipo, React.ElementType> = {
 }
 
 export function NotasPage() {
-  const { perfilAtivo, getNotas, criarNota, atualizarNota, excluirNota } = useStore()
+  const { perfilAtivo, getNotas, criarNota, atualizarNota, excluirNota, getBanco, converterNotaEmProjeto, setActiveView } = useStore()
   const accent = perfilAtivo === 'pessoal' ? '#1d9e75' : '#e8a020'
   const notas = getNotas()
+  const contas = getBanco().contas
 
   const [aba, setAba] = useState<Aba>('mural')
   const [busca, setBusca] = useState('')
@@ -131,7 +132,7 @@ export function NotasPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {filtradas.map(n => (
-              <NotaCard key={n.id} nota={n} accent={accent}
+              <NotaCard key={n.id} nota={n} accent={accent} contas={contas}
                 onEdit={() => { setEdit(n); setModal(true) }}
                 onPin={() => atualizarNota(n.id, { fixada: !n.fixada })}
                 onArchive={() => atualizarNota(n.id, { arquivada: !n.arquivada })}
@@ -141,26 +142,30 @@ export function NotasPage() {
                   atualizarNota(n.id, { itensChecklist: itens })
                 }}
                 onResolver={() => atualizarNota(n.id, { lembreteResolvido: true })}
+                onConverter={() => { if (converterNotaEmProjeto(n.id)) setActiveView('projects') }}
               />
             ))}
           </div>
         )}
       </div>
 
-      <NotaEditor open={modal} onClose={() => setModal(false)} accent={accent} initial={edit}
+      <NotaEditor open={modal} onClose={() => setModal(false)} accent={accent} initial={edit} contas={contas}
         onSave={(d) => { if (edit) atualizarNota(edit.id, d); else criarNota(d) }} />
     </div>
   )
 }
 
 // ── Card post-it ──────────────────────────────────────────────────────────────
-function NotaCard({ nota: n, accent, onEdit, onPin, onArchive, onDelete, onToggleItem, onResolver }: {
-  nota: Nota; accent: string
+function NotaCard({ nota: n, accent, contas, onEdit, onPin, onArchive, onDelete, onToggleItem, onResolver, onConverter }: {
+  nota: Nota; accent: string; contas: { id: string; nome: string }[]
   onEdit: () => void; onPin: () => void; onArchive: () => void; onDelete: () => void
-  onToggleItem: (id: string) => void; onResolver: () => void
+  onToggleItem: (id: string) => void; onResolver: () => void; onConverter: () => void
 }) {
   const Icon = TIPO_ICON[n.tipo]
   const lembreteVenc = n.dataLembrete ? new Date(n.dataLembrete).getTime() < Date.now() : false
+  const vincLabel = n.vinculo?.tipo === 'conta'
+    ? (contas.find(c => c.id === n.vinculo!.id)?.nome ?? 'Conta')
+    : n.vinculo?.label
   return (
     <div className="rounded-2xl p-4 border group relative flex flex-col gap-2" style={{ background: `${n.cor}14`, borderColor: `${n.cor}44` }}>
       <div className="flex items-start justify-between gap-2">
@@ -196,6 +201,13 @@ function NotaCard({ nota: n, accent, onEdit, onPin, onArchive, onDelete, onToggl
         </div>
       )}
 
+      {vincLabel && (
+        <div className="flex items-center gap-1.5 text-xs text-[#8b949e]">
+          {n.vinculo?.tipo === 'modulo' ? <Brain size={12} /> : <DollarSign size={12} />}
+          <span className="truncate">{vincLabel}</span>
+        </div>
+      )}
+
       {n.tags.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {n.tags.map(t => <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: `${n.cor}22`, color: n.cor }}>#{t}</span>)}
@@ -204,6 +216,7 @@ function NotaCard({ nota: n, accent, onEdit, onPin, onArchive, onDelete, onToggl
 
       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity justify-end mt-1">
         {n.tipo === 'lembrete' && !n.lembreteResolvido && <button onClick={onResolver} className="text-[11px] px-2 py-1 rounded-md text-[#1d9e75]">Resolver</button>}
+        <button onClick={onConverter} title="Converter em Mapa Mental" className="p-1 text-[#8b949e] hover:text-[#8b5cf6]"><Brain size={13} /></button>
         <button onClick={onArchive} className="p-1 text-[#8b949e] hover:text-[#e6edf3]">{n.arquivada ? <ArchiveRestore size={13} /> : <Archive size={13} />}</button>
         <button onClick={onDelete} className="p-1 text-[#8b949e] hover:text-[#ef4444]"><Trash2 size={13} /></button>
       </div>
@@ -212,11 +225,13 @@ function NotaCard({ nota: n, accent, onEdit, onPin, onArchive, onDelete, onToggl
 }
 
 // ── Editor ────────────────────────────────────────────────────────────────────
-function NotaEditor({ open, onClose, accent, initial, onSave }: {
+function NotaEditor({ open, onClose, accent, initial, contas, onSave }: {
   open: boolean; onClose: () => void; accent: string; initial: Nota | null
+  contas: { id: string; nome: string }[]
   onSave: (d: Omit<Nota, 'id' | 'criadaEm' | 'atualizadaEm'>) => void
 }) {
   const [tipo, setTipo] = useState<NotaTipo>(initial?.tipo ?? 'simples')
+  const [vinculoConta, setVinculoConta] = useState(initial?.vinculo?.tipo === 'conta' ? initial.vinculo.id : '')
   const [titulo, setTitulo] = useState(initial?.titulo ?? '')
   const [texto, setTexto] = useState(initial?.texto ?? '')
   const [cor, setCor] = useState(initial?.cor ?? NOTA_CORES[0])
@@ -255,7 +270,9 @@ function NotaEditor({ open, onClose, accent, initial, onSave }: {
       dataLembrete: tipo === 'lembrete' && dataLembrete ? dataLembrete : undefined,
       recorrencia: tipo === 'lembrete' ? recorrencia : undefined,
       lembreteResolvido: initial?.lembreteResolvido,
-      vinculo: initial?.vinculo,
+      vinculo: tipo === 'financeira' && vinculoConta
+        ? { tipo: 'conta', id: vinculoConta, label: contas.find(c => c.id === vinculoConta)?.nome }
+        : initial?.vinculo?.tipo === 'modulo' ? initial.vinculo : undefined,
     })
     onClose()
   }
@@ -264,13 +281,14 @@ function NotaEditor({ open, onClose, accent, initial, onSave }: {
     { id: 'simples', label: 'Nota', icon: FileText },
     { id: 'checklist', label: 'Checklist', icon: ListChecks },
     { id: 'lembrete', label: 'Lembrete', icon: Bell },
+    { id: 'financeira', label: 'Financeira', icon: DollarSign },
   ]
 
   return (
     <Modal open={open} onClose={onClose} title={initial ? 'Editar nota' : 'Nova nota'}>
       <form onSubmit={submit} className="flex flex-col gap-4">
         {/* tipo */}
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {TIPOS.map(t => { const Icon = t.icon; const on = tipo === t.id; return (
             <button key={t.id} type="button" onClick={() => setTipo(t.id)} className="flex items-center justify-center gap-1.5 py-2 rounded-lg text-sm border transition-colors"
               style={{ background: on ? `${accent}22` : 'transparent', color: on ? accent : '#8b949e', borderColor: on ? accent : '#30363d' }}>
@@ -326,6 +344,18 @@ function NotaEditor({ open, onClose, accent, initial, onSave }: {
                 <option value="nenhuma">Não repetir</option><option value="semanal">Semanal</option><option value="mensal">Mensal</option>
               </select>
             </div>
+          </div>
+        )}
+
+        {tipo === 'financeira' && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-[#8b949e]">Vincular à conta</label>
+            <select value={vinculoConta} onChange={e => setVinculoConta(e.target.value)}
+              className="bg-[#0a0f0a] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none">
+              <option value="">Nenhuma</option>
+              {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+            <p className="text-xs text-[#484f58]">A nota aparecerá como ícone na conta vinculada.</p>
           </div>
         )}
 

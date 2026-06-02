@@ -461,6 +461,8 @@ interface AppState {
   atualizarNota: (id: string, data: Partial<Nota>, perfil?: Perfil) => void
   excluirNota: (id: string, perfil?: Perfil) => void
   getLembretesProximos: (perfil?: Perfil) => Nota[]
+  getNotasDoVinculo: (tipo: 'conta' | 'transacao' | 'modulo', id: string, perfil?: Perfil) => Nota[]
+  converterNotaEmProjeto: (notaId: string, perfil?: Perfil) => Project | null
 
   // ── Selectors consolidados ──────────────────────────────────────────────────
   getReceitasMes: (mes: string, perfil?: Perfil) => number   // mes = 'YYYY-MM'
@@ -981,6 +983,26 @@ export const useStore = create<AppState>()(
         return notas
           .filter(n => n.tipo === 'lembrete' && n.dataLembrete && !n.lembreteResolvido && !n.arquivada)
           .sort((a, b) => (a.dataLembrete ?? '').localeCompare(b.dataLembrete ?? ''))
+      },
+      getNotasDoVinculo: (tipo, id, perfil) =>
+        get().getNotas(perfil).filter(n => !n.arquivada && n.vinculo?.tipo === tipo && n.vinculo?.id === id),
+      converterNotaEmProjeto: (notaId, perfil) => {
+        const nota = get().getNotas(perfil).find(n => n.id === notaId)
+        if (!nota) return null
+        const p = get().createProject({
+          title: nota.titulo || nota.texto.slice(0, 40) || 'Nota',
+          description: nota.tipo === 'checklist' ? '' : nota.texto,
+          color: nota.cor, icon: 'Brain', type: 'planning', origem: 'manual',
+        })
+        // itens de checklist viram cards no kanban (coluna "todo")
+        const itens = nota.itensChecklist ?? []
+        itens.forEach(it => get().addKanbanCard(p.id, {
+          title: it.texto, priority: 'medium', tags: nota.tags,
+          checklist: [], column: it.feito ? 'done' : 'todo',
+        }))
+        // marca a nota como vinculada ao projeto e arquiva
+        get().atualizarNota(notaId, { vinculo: { tipo: 'modulo', id: p.id, label: 'Mapa Mental' }, arquivada: true }, perfil)
+        return p
       },
 
       // ── Selectors consolidados ──────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import {
   Plus, Eye, EyeOff, CreditCard, Wallet, PiggyBank, Smartphone,
-  Banknote, LineChart, MoreHorizontal, Pencil, Trash2,
+  Banknote, LineChart, MoreHorizontal, Pencil, Trash2, StickyNote,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { ContaBancaria, ContaTipo } from '../../store/bancoTypes'
@@ -32,6 +32,7 @@ export function ContasPage() {
     perfilAtivo, getBanco, getSaldoConta, getSaldoTotal,
     adicionarConta, editarConta, excluirConta,
     ocultarSaldos, setOcultarSaldos, setActiveContaId, setActiveView,
+    getNotasDoVinculo,
   } = useStore()
 
   const banco = getBanco()
@@ -139,6 +140,7 @@ export function ContasPage() {
               const variacao = variacaoMes(c.id)
               const ultimas = banco.transacoes.filter(t => t.contaId === c.id)
                 .sort((a, b) => b.data.localeCompare(a.data)).slice(0, 2)
+              const notasConta = getNotasDoVinculo('conta', c.id)
               return (
                 <div key={c.id}
                   onClick={() => abrirDetalhe(c.id)}
@@ -155,9 +157,16 @@ export function ContasPage() {
                         <p className="text-xs text-white/70">{c.banco}</p>
                       </div>
                     </div>
-                    {c.contaPadrao && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/25 text-white font-medium">Padrão</span>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {notasConta.length > 0 && (
+                        <span className="flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full bg-white/25 text-white font-medium" title={`${notasConta.length} nota(s) vinculada(s)`}>
+                          <StickyNote size={10} /> {notasConta.length}
+                        </span>
+                      )}
+                      {c.contaPadrao && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/25 text-white font-medium">Padrão</span>
+                      )}
+                    </div>
                   </div>
                   <span className="relative inline-block text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white mb-2">
                     {CONTA_TIPOS.find(t => t.tipo === c.tipo)?.label}
