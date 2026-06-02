@@ -885,7 +885,7 @@ export const useStore = create<AppState>()(
       getValorEmpresa: () => {
         const s = get()
         return s.empresas.reduce((sum, e) => {
-          const estoque = e.insumos.reduce((x, i) => x + i.estoqueAtual * i.custoUnitario, 0)
+          const estoque = (e.insumos ?? []).reduce((x, i) => x + i.estoqueAtual * i.custoUnitario, 0)
           const caixa = (e.banco?.contas ?? []).reduce((x, c) => {
             const delta = (e.banco?.transacoes ?? [])
               .filter(t => t.contaId === c.id)
@@ -947,7 +947,7 @@ export const useStore = create<AppState>()(
         const saldoPessoal = s.getSaldoTotal('pessoal')
         // soma saldos bancários + estoque de todas as empresas
         const empresaTotal = s.empresas.reduce((sum, e) => {
-          const estoque = e.insumos.reduce((x, i) => x + i.estoqueAtual * i.custoUnitario, 0)
+          const estoque = (e.insumos ?? []).reduce((x, i) => x + i.estoqueAtual * i.custoUnitario, 0)
           const caixa = (e.banco?.contas ?? []).reduce((x, c) => {
             const delta = (e.banco?.transacoes ?? [])
               .filter(t => t.contaId === c.id)

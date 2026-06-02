@@ -80,7 +80,7 @@ export function Dashboard() {
         caixa += c.saldoInicial + delta
       })
       // contas a pagar vencendo em 7 dias
-      e.contasPagar.filter(c => c.status === 'pendente').forEach(c => {
+      ;(e.contasPagar ?? []).filter(c => c.status === 'pendente').forEach(c => {
         const dias = daysUntil(c.vencimento)
         if (dias >= 0 && dias <= 7) { aVencer7 += c.valor; contasVencendo.push({ desc: c.descricao, valor: c.valor, dias }) }
       })
@@ -88,7 +88,7 @@ export function Dashboard() {
     const lucro = Math.max(0, fat - custos)
     const margem = fat > 0 ? (lucro / fat) * 100 : 0
     const cmvPct = fat > 0 ? (cmvValor / fat) * 100 : 0
-    const metaFat = empresas[0]?.metas.faturamento ?? 0
+    const metaFat = empresas[0]?.metas?.faturamento ?? 0
     return { fat, custos, lucro, margem, cmvPct, caixa, aVencer7, contasVencendo, metaFat }
   }, [empresas, mes])
 

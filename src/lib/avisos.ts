@@ -18,7 +18,7 @@ export const daysUntil = (iso: string): number =>
 export function calcularAvisos(empresas: Empresa[], janela = 7): Aviso[] {
   const out: Aviso[] = []
   empresas.forEach(e => {
-    e.contasPagar.filter(c => c.status === 'pendente').forEach(c => {
+    (e.contasPagar ?? []).filter(c => c.status === 'pendente').forEach(c => {
       const dias = daysUntil(c.vencimento)
       if (dias <= janela) {
         out.push({
