@@ -54,6 +54,42 @@ export type AppView =
   | 'contas' | 'conta_detalhe' | 'transacoes' | 'transferencias'
   | 'controle_financeiro'
 
+/**
+ * Perfil exigido por cada view, para o guard de isolamento:
+ * - 'pessoal' / 'empresa': só acessível no respectivo perfil
+ * - 'ambos': telas com escopo do perfil ativo (banco, controle) ou
+ *   leitura consolidada (dashboard) + a ponte (separação)
+ */
+export const VIEW_PROFILE: Record<AppView, 'pessoal' | 'empresa' | 'ambos'> = {
+  dashboard: 'ambos',
+  separacao: 'ambos',
+  contas: 'ambos',
+  conta_detalhe: 'ambos',
+  transacoes: 'ambos',
+  transferencias: 'ambos',
+  controle_financeiro: 'ambos',
+  projects: 'ambos',
+  // pessoais
+  simulador: 'pessoal',
+  diary: 'pessoal',
+  editor: 'pessoal',
+  kanban: 'pessoal',
+  // empresariais
+  empresa_dashboard: 'empresa',
+  empresa_dre: 'empresa',
+  empresa_fluxo: 'empresa',
+  empresa_pagar: 'empresa',
+  empresa_receber: 'empresa',
+  empresa_indicadores: 'empresa',
+  empresa_rh: 'empresa',
+  empresa_estoque: 'empresa',
+}
+
+export function viewPermitida(view: AppView, perfil: Perfil): boolean {
+  const req = VIEW_PROFILE[view]
+  return req === 'ambos' || req === perfil
+}
+
 export interface SimParams { inicial: number; mensal: number; yieldAnual: number; meta: number }
 export interface SimAlocacao { id: string; nome: string; percentual: number; cor: string }
 export interface SimulacaoSalva {

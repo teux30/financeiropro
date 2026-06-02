@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { useStore } from './store/useStore'
+import { useStore, viewPermitida } from './store/useStore'
 import { Sidebar } from './components/layout/Sidebar'
 import { Header } from './components/layout/Header'
 import { ProfileSelector } from './components/ProfileSelector'
@@ -50,10 +50,20 @@ function AppShell() {
 
   useEffect(() => { processarRecorrentes() }, [processarRecorrentes])
 
+  // ── Guard de isolamento: bloqueia views do outro perfil ──────────────────
+  // Se a view ativa não pertence ao perfil ativo, volta ao dashboard.
+  useEffect(() => {
+    if (!viewPermitida(activeView, perfilAtivo)) {
+      setActiveView('dashboard')
+    }
+  }, [activeView, perfilAtivo, setActiveView])
+
   // Full-screen views (no header/sidebar)
   const isFullScreen = activeView === 'editor' || activeView === 'kanban'
 
   const renderPage = () => {
+    // isolamento: nunca renderiza view de outro perfil (mostra dashboard até o guard corrigir)
+    if (!viewPermitida(activeView, perfilAtivo)) return <Dashboard />
     switch (activeView) {
       // Personal
       case 'dashboard':    return <Dashboard />

@@ -30,8 +30,8 @@ export function CapturaIA({ open, onClose }: Props) {
   const [erro, setErro] = useState('')
   const [preview, setPreview] = useState<string | null>(null)
   const [analise, setAnalise] = useState<AnaliseTransacao | null>(null)
-  // campos editáveis
-  const [contexto, setContexto] = useState<'pessoal' | 'empresa'>('pessoal')
+  // campos editáveis — contexto é TRAVADO no perfil ativo (isolamento)
+  const contexto = perfilAtivo
   const [tipo, setTipo] = useState<'entrada' | 'saida'>('saida')
   const [valor, setValor] = useState('')
   const [data, setData] = useState('')
@@ -58,13 +58,14 @@ export function CapturaIA({ open, onClose }: Props) {
     try {
       const r = await analisarComprovante(file, perfilAtivo, mapeamentos)
       setAnalise(r)
-      // preenche campos
-      setContexto(r.contexto); setTipo(r.tipo)
+      // contexto fixo no perfil ativo; categoria validada nesse contexto
+      const validas = categoriasPorPerfil(perfilAtivo, r.tipo)
+      setTipo(r.tipo)
       setValor(String(r.valor)); setData(r.data)
       setDescricao(r.descricao); setEstabelecimento(r.estabelecimento)
-      setCategoria(r.categoria)
-      // conta sugerida: padrão do banco do contexto
-      const b = useStore.getState().getBanco(r.contexto)
+      setCategoria(validas.includes(r.categoria) ? r.categoria : validas[0])
+      // conta sugerida: padrão do banco do PERFIL ATIVO
+      const b = useStore.getState().getBanco(perfilAtivo)
       const padrao = b.contas.find(c => c.contaPadrao) ?? b.contas[0]
       setContaId(padrao?.id ?? '')
       setEtapa('revisar')
@@ -74,15 +75,6 @@ export function CapturaIA({ open, onClose }: Props) {
     }
   }
 
-  // ao trocar contexto/tipo, garante categoria válida + conta do contexto certo
-  const trocarContexto = (ctx: 'pessoal' | 'empresa') => {
-    setContexto(ctx)
-    const validas = categoriasPorPerfil(ctx, tipo)
-    if (!validas.includes(categoria)) setCategoria(validas[0])
-    const b = useStore.getState().getBanco(ctx)
-    const padrao = b.contas.find(c => c.contaPadrao) ?? b.contas[0]
-    setContaId(padrao?.id ?? '')
-  }
   const trocarTipo = (t: 'entrada' | 'saida') => {
     setTipo(t)
     const validas = categoriasPorPerfil(contexto, t)
@@ -181,23 +173,14 @@ export function CapturaIA({ open, onClose }: Props) {
         <div className="flex flex-col gap-4">
           {preview && <img src={preview} alt="comprovante" className="max-h-32 rounded-lg border border-[#30363d] self-center" />}
 
-          {/* toggle contexto */}
-          <div>
-            <label className="text-xs font-medium text-[#8b949e] block mb-1.5 flex items-center gap-1">
-              Contexto {baixaConf(analise.confianca.contexto) && <span className="text-[#ef4444]">• confira</span>}
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => trocarContexto('pessoal')}
-                className="flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm transition-colors border"
-                style={{ background: contexto === 'pessoal' ? '#1d9e7522' : 'transparent', color: contexto === 'pessoal' ? '#1d9e75' : '#8b949e', borderColor: contexto === 'pessoal' ? '#1d9e75' : '#30363d' }}>
-                <User size={15} /> Pessoal
-              </button>
-              <button onClick={() => trocarContexto('empresa')}
-                className="flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm transition-colors border"
-                style={{ background: contexto === 'empresa' ? '#e8a02022' : 'transparent', color: contexto === 'empresa' ? '#e8a020' : '#8b949e', borderColor: contexto === 'empresa' ? '#e8a020' : '#30363d' }}>
-                <Building2 size={15} /> Empresa
-              </button>
-            </div>
+          {/* contexto travado no perfil ativo (isolamento) */}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
+            style={{ background: contexto === 'pessoal' ? '#1d9e7515' : '#e8a02015', color: contexto === 'pessoal' ? '#1d9e75' : '#e8a020', border: `1px solid ${contexto === 'pessoal' ? '#1d9e7544' : '#e8a02044'}` }}>
+            {contexto === 'pessoal' ? <User size={15} /> : <Building2 size={15} />}
+            Lançando no perfil {contexto === 'pessoal' ? 'Pessoal' : 'Empresa'}
+            {analise.contexto !== contexto && (
+              <span className="text-[11px] text-[#8b949e] ml-auto">IA sugeriu {analise.contexto}; troque de perfil para lançar lá</span>
+            )}
           </div>
 
           {/* tipo */}
