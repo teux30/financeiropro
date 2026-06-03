@@ -4,9 +4,10 @@ import {
 } from 'recharts'
 import {
   User, Building2, ArrowRight, TrendingUp, Target, Sparkles, Wallet, ArrowLeftRight,
-  Eye, EyeOff, PiggyBank, AlertTriangle, Clock, Calendar, CheckCircle2, StickyNote,
+  Eye, EyeOff, PiggyBank, Clock,
 } from 'lucide-react'
 import { useStore } from '../store/useStore'
+import { PainelDestaque } from '../components/dashboard/PainelDestaque'
 import { fmtBRL, fmtBRLshort, maskSaldo } from '../lib/format'
 import { useCountUp } from '../lib/banco-ui'
 import { patrimonioAlvo } from '../store/objetivoTypes'
@@ -27,7 +28,7 @@ export function Dashboard() {
     getDespesasPessoaisMensais, getIndependenciaFinanceira, getProjecaoIndependencia,
     getSaldoTotal, getReceitasMes, getDespesasMes, getTaxaPoupanca,
     getFluxoConsolidadoMes, getDadosGraficoMestre,
-    simParams, separacao, empresas, objetivos, aportesReais, quickIdeas,
+    simParams, separacao, empresas, objetivos, aportesReais,
   } = s
 
   const [visao, setVisao] = useState<Visao>('tudo')
@@ -137,33 +138,6 @@ export function Dashboard() {
     }
   }, [objPrincipal, aportesReais])
 
-  // ── alertas consolidados ─────────────────────────────────────────────────
-  const alertas = useMemo(() => {
-    const out: { icon: typeof AlertTriangle; cor: string; texto: string }[] = []
-    if (verEmpresa) {
-      emp.contasVencendo.slice(0, 3).forEach(c =>
-        out.push({ icon: Clock, cor: '#e8a020', texto: `${c.desc} vence em ${c.dias}d: ${fmtBRL(c.valor)}` }))
-      if (emp.cmvPct > 35) out.push({ icon: AlertTriangle, cor: '#ef4444', texto: `CMV em ${emp.cmvPct.toFixed(0)}% (acima do ideal)` })
-    }
-    if (verPessoal && objPrincipal && objData) {
-      if (objData.pct >= 75 && objData.pct < 100) out.push({ icon: Target, cor: '#1d9e75', texto: `Objetivo "${objPrincipal.nome}" a ${(100 - objData.pct).toFixed(0)}% da meta!` })
-      out.push({ icon: Calendar, cor: '#3b82f6', texto: `Dia de guardar para "${objPrincipal.nome}"` })
-    }
-    if (verPessoal) {
-      const novas = quickIdeas.filter(i => i.status === 'new').length
-      if (novas > 0) out.push({ icon: Sparkles, cor: '#e8a020', texto: `${novas} ideia(s) nova(s) para processar` })
-    }
-    // Lembretes do Bloco de Notas (perfil ativo) — próximos 3 dias
-    s.getLembretesProximos().slice(0, 3).forEach(n => {
-      const d = daysUntil(n.dataLembrete!)
-      if (d <= 3) {
-        const quando = d < 0 ? 'atrasado' : d === 0 ? 'hoje' : d === 1 ? 'amanhã' : `em ${d}d`
-        out.push({ icon: StickyNote, cor: d < 0 ? '#ef4444' : '#3b82f6', texto: `Lembrete ${quando}: ${n.titulo || n.texto.slice(0, 40)}` })
-      }
-    })
-    return out
-  }, [emp, objPrincipal, objData, quickIdeas, verEmpresa, verPessoal, s])
-
   const Mask = (v: number) => maskSaldo(fmtBRL(v), ocultarSaldos)
   const MaskS = (v: number) => maskSaldo(fmtBRLshort(v), ocultarSaldos)
 
@@ -228,6 +202,9 @@ export function Dashboard() {
             </ResponsiveContainer>
           </div>
         </div>
+
+        {/* DESTAQUE — Alertas/Lembretes + Notas fixadas (prioridade visual) */}
+        <PainelDestaque visao={visao} />
 
         {/* B2 + B3 — Blocos Pessoal / Empresa */}
         <div className={`grid grid-cols-1 ${visao === 'tudo' ? 'lg:grid-cols-2' : ''} gap-4`}>
@@ -416,33 +393,6 @@ export function Dashboard() {
           </button>
         )}
 
-        {/* B9 — Alertas e próximas ações */}
-        {alertas.length > 0 && (
-          <div className="rounded-2xl p-5 border" style={{ background: '#141a14', borderColor: 'rgba(255,255,255,0.08)' }}>
-            <div className="flex items-center gap-2 mb-3">
-              <AlertTriangle size={16} className="text-[#e8a020]" />
-              <span className="text-base font-semibold text-[#e6edf3]">Alertas e próximas ações</span>
-            </div>
-            <div className="flex flex-col gap-2">
-              {alertas.map((a, i) => {
-                const Icon = a.icon
-                return (
-                  <div key={i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg" style={{ background: `${a.cor}11`, borderLeft: `2px solid ${a.cor}` }}>
-                    <Icon size={14} style={{ color: a.cor }} className="shrink-0" />
-                    <span className="text-sm text-[#e6edf3]">{a.texto}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {alertas.length === 0 && (
-          <div className="rounded-2xl p-5 border flex items-center gap-2.5" style={{ background: '#141a14', borderColor: 'rgba(255,255,255,0.08)' }}>
-            <CheckCircle2 size={16} className="text-[#1d9e75]" />
-            <span className="text-sm text-[#8b949e]">Tudo em ordem — nenhum alerta no momento.</span>
-          </div>
-        )}
       </div>
     </div>
   )

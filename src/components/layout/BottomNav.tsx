@@ -1,4 +1,4 @@
-import { Home, Wallet, Receipt, ArrowLeftRight, Menu, Plus } from 'lucide-react'
+import { Home, Wallet, Receipt, StickyNote, Menu, Plus } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AppView } from '../../store/useStore'
 import { useUiStore } from '../../store/useUiStore'
@@ -25,7 +25,7 @@ export function BottomNav({ onMore, onNovaTransacao }: Props) {
     { view: homeView, label: 'Início', icon: Home },
     { view: 'contas', label: 'Contas', icon: Wallet },
     { view: 'transacoes', label: 'Extrato', icon: Receipt },
-    { view: 'transferencias', label: 'Transferir', icon: ArrowLeftRight },
+    { view: 'notas', label: 'Notas', icon: StickyNote },
   ]
 
   const isActive = (v: AppView) => activeView === v
