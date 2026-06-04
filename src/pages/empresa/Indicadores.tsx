@@ -79,6 +79,7 @@ export default function Indicadores() {
   const [clientesAtendidos, setClientesAtendidos] = useState<number>(0)
 
   const getEmpresaAtiva = useStore(s => s.getEmpresaAtiva)
+  const getBanco = useStore(s => s.getBanco)
   const empresa = getEmpresaAtiva()
 
   if (!empresa) {
@@ -92,14 +93,16 @@ export default function Indicadores() {
   const mesStr = String(selectedMes).padStart(2, '0')
   const prefix = `${selectedAno}-${mesStr}`
 
-  const lancamentosMes = empresa.fluxoCaixa.filter(l => l.data.startsWith(prefix))
+  const lancamentosMes = (getBanco('empresa').transacoes ?? [])
+    .filter(l => l.categoria !== 'transferencia' && !l.transferenciaId)
+    .filter(l => l.data.startsWith(prefix))
   const entradas = lancamentosMes.filter(l => l.tipo === 'entrada').reduce((s, l) => s + l.valor, 0)
   const saidas = lancamentosMes.filter(l => l.tipo === 'saida').reduce((s, l) => s + l.valor, 0)
 
   const faturamento = entradas
 
   const cmvValor = lancamentosMes
-    .filter(l => l.tipo === 'saida' && l.categoria === 'fornecedores')
+    .filter(l => l.tipo === 'saida' && l.categoria === 'insumos')
     .reduce((s, l) => s + l.valor, 0)
 
   const cmvPct = faturamento > 0 ? (cmvValor / faturamento) * 100 : 0

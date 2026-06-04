@@ -81,7 +81,7 @@ export default function ContasPagar() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(defaultForm());
 
-  const { adicionarContaPagar, atualizarContaPagar, excluirContaPagar, adicionarLancamento, getEmpresaAtiva, getBanco, registrarTransacao } = useStore();
+  const { adicionarContaPagar, atualizarContaPagar, excluirContaPagar, getEmpresaAtiva, getBanco, registrarTransacao } = useStore();
   const empresa = getEmpresaAtiva();
   const bancoEmp = getBanco('empresa');
 
@@ -164,15 +164,8 @@ export default function ContasPagar() {
   const marcarPago = (c: Conta) => {
     if (!empresa) return;
     atualizarContaPagar(empresa.id, c.id, { status: 'pago' as ContaStatus });
-    adicionarLancamento(empresa.id, {
-      tipo: 'saida',
-      valor: c.valor,
-      data: new Date().toISOString().slice(0, 10),
-      categoria: c.categoria,
-      descricao: c.descricao,
-      liquidado: true,
-    });
-    // Integração bancária: lança saída na conta padrão da empresa (se houver)
+    // Quitar = vira transação real (realizado). Não grava no fluxoCaixa legado
+    // para evitar dupla contagem: o Fluxo de Caixa deriva das transações.
     const contaPadrao = bancoEmp.contas.find(x => x.contaPadrao) ?? bancoEmp.contas[0];
     if (contaPadrao) {
       const catMap: Record<string, import('../../store/bancoTypes').CategoriaFin> = {

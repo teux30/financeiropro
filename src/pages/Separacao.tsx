@@ -16,7 +16,7 @@ const TABS = [
 ]
 
 export function SeparacaoPage() {
-  const { separacao, setSeparacao, registrarProLabore, simParams, getEmpresaAtiva } = useStore()
+  const { separacao, setSeparacao, registrarProLabore, simParams, getEmpresaAtiva, getBanco } = useStore()
   const empresa = getEmpresaAtiva()
 
   const [activeTab, setActiveTab] = useState(0)
@@ -33,7 +33,9 @@ export function SeparacaoPage() {
   const now = new Date()
   const mesStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   const faturamentoMes = empresa
-    ? empresa.fluxoCaixa.filter(l => l.tipo === 'entrada' && l.data.startsWith(mesStr)).reduce((s, l) => s + l.valor, 0)
+    ? (getBanco('empresa').transacoes ?? [])
+        .filter(l => l.tipo === 'entrada' && l.categoria !== 'transferencia' && !l.transferenciaId && l.data.startsWith(mesStr))
+        .reduce((s, l) => s + l.valor, 0)
     : 0
   const pctFaturamento = faturamentoMes > 0 ? (separacao.proLabore / faturamentoMes * 100) : 0
 

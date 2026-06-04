@@ -63,6 +63,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function DashboardEmpresa() {
   const getEmpresaAtiva = useStore((s: any) => s.getEmpresaAtiva);
+  const getBanco = useStore((s: any) => s.getBanco);
   const empresa = getEmpresaAtiva();
 
   if (!empresa) {
@@ -81,7 +82,9 @@ export default function DashboardEmpresa() {
     );
   }
 
-  const fluxoCaixa = empresa.fluxoCaixa ?? [];
+  // Fonte única: transações efetivadas (exclui transferências internas)
+  const fluxoCaixa = (getBanco('empresa').transacoes ?? [])
+    .filter((t: any) => t.categoria !== 'transferencia' && !t.transferenciaId);
   const contasPagar = empresa.contasPagar ?? [];
   const metas = empresa.metas ?? { faturamento: 0, lucro: 0, cmvMax: 30 };
 
@@ -105,7 +108,7 @@ export default function DashboardEmpresa() {
   const lucroMes = entradas - saidas;
 
   const saidasFornecedores = lancamentosMes
-    .filter((l: any) => l.tipo === 'saida' && l.categoria === 'fornecedores')
+    .filter((l: any) => l.tipo === 'saida' && (l.categoria === 'insumos' || l.categoria === 'fornecedores'))
     .reduce((acc: number, l: any) => acc + (l.valor ?? 0), 0);
 
   const cmvPct = entradas > 0 ? (saidasFornecedores / entradas) * 100 : 0;

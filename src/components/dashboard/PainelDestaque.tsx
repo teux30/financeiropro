@@ -33,7 +33,7 @@ export function PainelDestaque({ visao }: { visao: Visao }) {
   const s = useStore()
   const {
     perfilAtivo, empresas, notifPrefs, avisosLidos, marcarAvisoLido,
-    atualizarContaPagar, adicionarLancamento, getBanco, registrarTransacao,
+    atualizarContaPagar, getBanco, registrarTransacao,
     getNotas, getLembretesProximos, criarNota, atualizarNota,
     objetivos, setActiveView, setPerfilAtivo,
   } = s
@@ -48,10 +48,7 @@ export function PainelDestaque({ visao }: { visao: Visao }) {
     const conta = emp?.contasPagar.find(c => c.id === contaId)
     if (!emp || !conta) return
     atualizarContaPagar(emp.id, conta.id, { status: 'pago' })
-    adicionarLancamento(emp.id, {
-      tipo: 'saida', valor: conta.valor, data: new Date().toISOString().slice(0, 10),
-      categoria: conta.categoria, descricao: conta.descricao, liquidado: true,
-    })
+    // quitar = transação real (realizado); não grava no fluxoCaixa legado (evita dupla contagem)
     const bancoEmp = getBanco('empresa')
     const padrao = bancoEmp.contas.find(c => c.contaPadrao) ?? bancoEmp.contas[0]
     if (padrao) {

@@ -76,7 +76,7 @@ export default function ContasReceber() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(defaultForm());
 
-  const { adicionarContaReceber, atualizarContaReceber, excluirContaReceber, adicionarLancamento, getEmpresaAtiva, getBanco, registrarTransacao } = useStore();
+  const { adicionarContaReceber, atualizarContaReceber, excluirContaReceber, getEmpresaAtiva, getBanco, registrarTransacao } = useStore();
   const empresa = getEmpresaAtiva();
   const bancoEmp = getBanco('empresa');
 
@@ -159,15 +159,8 @@ export default function ContasReceber() {
   const marcarRecebido = (c: Conta) => {
     if (!empresa) return;
     atualizarContaReceber(empresa.id, c.id, { status: 'recebido' as ContaStatus });
-    adicionarLancamento(empresa.id, {
-      tipo: 'entrada',
-      valor: c.valor,
-      data: new Date().toISOString().slice(0, 10),
-      categoria: c.categoria,
-      descricao: c.descricao,
-      liquidado: true,
-    });
-    // Integração bancária: entrada na conta padrão da empresa
+    // Quitar = vira transação real (realizado). Não grava no fluxoCaixa legado
+    // para evitar dupla contagem: o Fluxo de Caixa deriva das transações.
     const contaPadrao = bancoEmp.contas.find(x => x.contaPadrao) ?? bancoEmp.contas[0];
     if (contaPadrao) {
       const catMap: Record<string, import('../../store/bancoTypes').CategoriaFin> = {

@@ -7,7 +7,7 @@ import { fmtBRL } from '../lib/format'
 export function NotificationBell() {
   const {
     empresas, avisosLidos, marcarAvisoLido,
-    atualizarContaPagar, adicionarLancamento, getBanco, registrarTransacao,
+    atualizarContaPagar, getBanco, registrarTransacao,
     notifPrefs,
   } = useStore()
   const [open, setOpen] = useState(false)
@@ -29,10 +29,7 @@ export function NotificationBell() {
     const conta = emp?.contasPagar.find(c => c.id === aviso.id)
     if (!emp || !conta) return
     atualizarContaPagar(emp.id, conta.id, { status: 'pago' })
-    adicionarLancamento(emp.id, {
-      tipo: 'saida', valor: conta.valor, data: new Date().toISOString().slice(0, 10),
-      categoria: conta.categoria, descricao: conta.descricao, liquidado: true,
-    })
+    // quitar = transação real (realizado); não grava no fluxoCaixa legado (evita dupla contagem)
     // integração bancária: debita conta padrão PJ
     const bancoEmp = getBanco('empresa')
     const padrao = bancoEmp.contas.find(c => c.contaPadrao) ?? bancoEmp.contas[0]
