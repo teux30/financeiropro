@@ -360,6 +360,9 @@ interface AppState {
   adicionarLancamento: (empresaId: string, l: Omit<FluxoLancamento, 'id'>) => void
   atualizarLancamento: (empresaId: string, id: string, data: Partial<FluxoLancamento>) => void
   excluirLancamento: (empresaId: string, id: string) => void
+  /** Migra lançamentos antigos do fluxoCaixa (array órfão) para transações reais.
+   *  Retorna nº migrados, 0 se nada, -1 se não há conta empresa para vincular. */
+  migrarFluxoParaTransacoes: (empresaId: string) => number
 
   // Contas a Pagar
   adicionarContaPagar: (empresaId: string, c: Omit<Conta, 'id'>) => void
@@ -655,6 +658,31 @@ export const useStore = create<AppState>()(
       adicionarLancamento: (empresaId, l) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({ ...e, fluxoCaixa: [...e.fluxoCaixa, { ...l, id: nanoid() }] })) })),
       atualizarLancamento: (empresaId, id, data) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({ ...e, fluxoCaixa: e.fluxoCaixa.map(l => l.id === id ? { ...l, ...data } : l) })) })),
       excluirLancamento: (empresaId, id) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({ ...e, fluxoCaixa: e.fluxoCaixa.filter(l => l.id !== id) })) })),
+      migrarFluxoParaTransacoes: (empresaId) => {
+        const s = get()
+        const emp = s.empresas.find(e => e.id === empresaId)
+        const orfaos = emp?.fluxoCaixa ?? []
+        if (!emp || orfaos.length === 0) return 0
+        const banco = normBanco(emp.banco)
+        const conta = banco.contas.find(c => c.contaPadrao) ?? banco.contas[0]
+        if (!conta) return -1 // sem conta para vincular — não migra (evita perda)
+        // mapeia categoria do fluxo (legado) → categoria unificada
+        const catMap: Record<string, CategoriaFin> = { fornecedores: 'insumos' }
+        const novas: Transacao[] = orfaos.map(l => ({
+          id: nanoid(), contaId: conta.id, tipo: l.tipo, valor: l.valor,
+          descricao: l.descricao || 'Lançamento migrado',
+          categoria: (catMap[l.categoria] ?? l.categoria) as CategoriaFin,
+          data: l.data, recorrente: false, origemAuto: 'manual',
+        }))
+        set(st => ({
+          empresas: updEmpresa(st.empresas, empresaId, e => ({
+            ...e,
+            banco: { ...normBanco(e.banco), transacoes: [...normBanco(e.banco).transacoes, ...novas] },
+            fluxoCaixa: [], // esvazia os órfãos: agora vivem como transações
+          })),
+        }))
+        return novas.length
+      },
 
       // Contas Pagar
       adicionarContaPagar: (empresaId, c) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({ ...e, contasPagar: [...e.contasPagar, { ...c, id: nanoid() }] })) })),
