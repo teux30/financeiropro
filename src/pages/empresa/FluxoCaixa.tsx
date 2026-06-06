@@ -6,6 +6,7 @@ import {
 import { useStore } from '../../store/useStore';
 import type { Transacao, CategoriaFin } from '../../store/bancoTypes';
 import { CATEGORIAS, categoriasPorPerfil } from '../../store/bancoTypes';
+import { projecaoEntregadores } from '../../store/entregadorSelectors';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
@@ -139,6 +140,17 @@ export function FluxoCaixaPage() {
         guard++;
       }
     });
+    // pagamentos semanais futuros de entregadores (estimado), dentro do mês e após hoje
+    if (empresa) {
+      const monthStart = `${monthPrefix}-01`;
+      const desde = monthStart > hoje ? monthStart : hoje;
+      projecaoEntregadores(empresa, desde, monthEnd).forEach(p => {
+        out.push({
+          id: `entreg-${p.semIni}`, data: p.data, tipo: 'saida', valor: p.valor,
+          descricao: 'Entregadores (estimado)', categoria: 'folha', origem: 'previsto', fonte: 'recorrente',
+        });
+      });
+    }
     return out;
   }, [empresa, banco.recorrentes, monthPrefix, monthEnd, hoje]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -179,6 +191,8 @@ export function FluxoCaixaPage() {
     (empresa?.contasReceber ?? []).filter(c => c.status !== 'recebido').forEach(c => {
       const v = c.vencimento.slice(0, 10); if (v > hoje && v <= limite) entradas += c.valor;
     });
+    // entregadores (estimativa semanal)
+    if (empresa) projecaoEntregadores(empresa, hoje, limite).forEach(p => { saidas += p.valor; });
     return { entradas, saidas, saldo: entradas - saidas };
   }, [banco.recorrentes, empresa, hoje]);
 

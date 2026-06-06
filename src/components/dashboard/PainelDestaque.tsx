@@ -5,6 +5,7 @@ import {
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import { calcularAvisos, daysUntil } from '../../lib/avisos'
+import { getConfigEntregadores, inicioSemana, resumoTodos } from '../../store/entregadorSelectors'
 import { fmtBRL } from '../../lib/format'
 import { NOTA_CORES } from '../../store/notasTypes'
 import type { Nota } from '../../store/notasTypes'
@@ -83,18 +84,23 @@ export function PainelDestaque({ visao }: { visao: Visao }) {
           onVer: () => { setPerfilAtivo('empresa'); setActiveView('empresa_pagar') },
         }))
 
-      // Pagamentos de entregadores pendentes
+      // Fechamento semanal de entregadores — lembra no dia do fechamento (ou depois) se há pendentes
+      const diaHoje = new Date().getDay()
       empresas.forEach(e => {
-        const pend = (e.pagamentosEntregador ?? []).filter(p => p.status === 'pendente')
-        if (pend.length > 0) {
-          const total = pend.reduce((sum, p) => sum + p.totalPago, 0)
-          out.push({
-            id: 'entreg-' + e.id, nivel: 1, icon: Bike,
-            titulo: `${pend.length} pagamento(s) de entregador`, sub: 'fechamento pendente',
-            valor: total, contexto: 'empresa',
-            onVer: () => { setPerfilAtivo('empresa'); setActiveView('empresa_entregadores') },
-          })
-        }
+        const cfg = getConfigEntregadores(e)
+        const semIni = inicioSemana(new Date().toISOString().slice(0, 10), cfg.inicioSemanaDia)
+        const pendentes = resumoTodos(e, semIni).filter(r => !r.pago && r.total > 0)
+        if (pendentes.length === 0) return
+        const total = pendentes.reduce((sum, r) => sum + r.total, 0)
+        // só vira alerta a partir do dia de fechamento da semana
+        const ehDiaFechamento = diaHoje === cfg.diaPagamento || diaHoje === (cfg.inicioSemanaDia + 6) % 7
+        out.push({
+          id: 'entreg-' + e.id, nivel: ehDiaFechamento ? 0 : 1, icon: Bike,
+          titulo: 'Fechar semana dos entregadores',
+          sub: ehDiaFechamento ? `${pendentes.length} a pagar · estimado` : `${pendentes.length} pendente(s) esta semana`,
+          valor: total, contexto: 'empresa',
+          onVer: () => { setPerfilAtivo('empresa'); setActiveView('empresa_entregadores') },
+        })
       })
     }
 

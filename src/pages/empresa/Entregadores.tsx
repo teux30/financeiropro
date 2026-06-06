@@ -1,41 +1,52 @@
 import { useState, useMemo } from 'react'
 import {
   Bike, Plus, Pencil, Trash2, Minus, Check, Search, ChevronLeft, ChevronRight,
-  Truck, DollarSign, Package, BarChart3,
+  Truck, DollarSign, Package, BarChart3, Settings, CalendarRange, PiggyBank,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
-import type { Entregador } from '../../store/empresaTypes'
-import { inicioSemana, fimSemana, resumoTodos, totalSemanaTodos, custoPorEntrega, entregasSemana } from '../../store/entregadorSelectors'
+import type { Entregador, ConfigEntregadores } from '../../store/empresaTypes'
+import {
+  inicioSemana, fimSemana, resumoTodos, totalSemanaTodos, custoPorEntrega, entregasSemana,
+  getConfigEntregadores, custoEntregadoresMes, folhaMensal, custoMaoObraMes, semanasDoMes,
+} from '../../store/entregadorSelectors'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { fmtBRL, maskSaldo } from '../../lib/format'
 
-type Aba = 'lista' | 'lancar' | 'fechar' | 'relatorio'
+type Aba = 'lista' | 'lancar' | 'fechar' | 'mensal' | 'relatorio'
 const hoje = () => new Date().toISOString().slice(0, 10)
 const fmtDM = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
+const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado']
+const MES_NOMES = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
+const mesDe = (iso: string) => MES_NOMES[Number(iso.slice(5, 7)) - 1]
+const cruzaMes = (ini: string, fim: string) => ini.slice(0, 7) !== fim.slice(0, 7)
 
 export function EntregadoresPage() {
   const {
     getEmpresaAtiva, getBanco, ocultarSaldos,
     adicionarEntregador, atualizarEntregador, excluirEntregador,
-    registrarEntrega, pagarEntregador,
+    registrarEntrega, pagarEntregador, setConfigEntregadores,
   } = useStore()
   const emp = getEmpresaAtiva()
+  const cfg = emp ? getConfigEntregadores(emp) : null
   const [aba, setAba] = useState<Aba>('lista')
-  const [semana, setSemana] = useState(inicioSemana(hoje()))
+  const [semana, setSemana] = useState(inicioSemana(hoje(), cfg?.inicioSemanaDia ?? 1))
+  const [showConfig, setShowConfig] = useState(false)
 
-  if (!emp) return <div className="flex-1 flex items-center justify-center text-[#8b949e]">Nenhuma empresa ativa.</div>
+  if (!emp || !cfg) return <div className="flex-1 flex items-center justify-center text-[#8b949e]">Nenhuma empresa ativa.</div>
 
   const mudarSemana = (delta: number) => {
     const d = new Date(semana + 'T00:00:00'); d.setDate(d.getDate() + delta * 7)
-    setSemana(inicioSemana(d.toISOString().slice(0, 10)))
+    setSemana(inicioSemana(d.toISOString().slice(0, 10), cfg.inicioSemanaDia))
   }
+  const semFim = fimSemana(semana, cfg.inicioSemanaDia)
 
   const ABAS: { id: Aba; label: string; icon: React.ElementType }[] = [
     { id: 'lista', label: 'Entregadores', icon: Truck },
     { id: 'lancar', label: 'Lançar entregas', icon: Package },
     { id: 'fechar', label: 'Fechamento', icon: DollarSign },
+    { id: 'mensal', label: 'Mensal', icon: CalendarRange },
     { id: 'relatorio', label: 'Relatórios', icon: BarChart3 },
   ]
 
@@ -47,10 +58,13 @@ export function EntregadoresPage() {
           <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#e8a02022' }}>
             <Bike size={18} style={{ color: '#e8a020' }} />
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold text-[#e6edf3]">Entregadores</h1>
-            <p className="text-xs text-[#8b949e]">Pagamento semanal · fixo + por entrega</p>
+            <p className="text-xs text-[#8b949e]">Ciclo {DIAS_SEMANA[cfg.inicioSemanaDia]}→{DIAS_SEMANA[(cfg.inicioSemanaDia + 6) % 7]} · pgto {DIAS_SEMANA[cfg.diaPagamento]} · {cfg.competencia === 'simples' ? 'competência simples' : 'rateio mensal'}</p>
           </div>
+          <button onClick={() => setShowConfig(true)} className="p-2 rounded-lg bg-[#161b22] border border-[#21262d] text-[#8b949e] hover:text-[#e6edf3]" title="Configurar ciclo">
+            <Settings size={16} />
+          </button>
         </div>
 
         {/* Abas */}
@@ -68,24 +82,157 @@ export function EntregadoresPage() {
         </div>
 
         {/* Seletor de semana (lançar/fechar/relatório) */}
-        {aba !== 'lista' && (
-          <div className="flex items-center justify-center gap-3 bg-[#161b22] border border-[#21262d] rounded-xl py-2">
-            <button onClick={() => mudarSemana(-1)} className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e6edf3]"><ChevronLeft size={18} /></button>
-            <span className="text-sm font-medium text-[#e6edf3]">{fmtDM(semana)} — {fmtDM(fimSemana(semana))}</span>
-            <button onClick={() => mudarSemana(1)} className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e6edf3]"><ChevronRight size={18} /></button>
+        {aba !== 'lista' && aba !== 'mensal' && (
+          <div className="flex flex-col items-center gap-1 bg-[#161b22] border border-[#21262d] rounded-xl py-2">
+            <div className="flex items-center justify-center gap-3">
+              <button onClick={() => mudarSemana(-1)} className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e6edf3]"><ChevronLeft size={18} /></button>
+              <span className="text-sm font-medium text-[#e6edf3]">{fmtDM(semana)} — {fmtDM(semFim)}</span>
+              <button onClick={() => mudarSemana(1)} className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e6edf3]"><ChevronRight size={18} /></button>
+            </div>
+            {cruzaMes(semana, semFim) && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: '#3b82f622', color: '#3b82f6' }}>
+                Semana cruza {mesDe(semana)}/{mesDe(semFim)} · {cfg.competencia === 'simples' ? 'lança no mês do pagamento' : 'rateio proporcional'}
+              </span>
+            )}
           </div>
         )}
 
         {aba === 'lista' && <ListaEntregadores emp={emp} semana={semana} ocultar={ocultarSaldos}
           onAdd={(d) => adicionarEntregador(emp.id, d)} onEdit={(id, d) => atualizarEntregador(emp.id, id, d)} onDel={(id) => excluirEntregador(emp.id, id)} />}
 
-        {aba === 'lancar' && <LancarEntregas emp={emp} semana={semana} onReg={(r) => registrarEntrega(emp.id, r)} />}
+        {aba === 'lancar' && <LancarEntregas emp={emp} semana={semana} semFim={semFim} onReg={(r) => registrarEntrega(emp.id, r)} />}
 
-        {aba === 'fechar' && <Fechamento emp={emp} semana={semana} ocultar={ocultarSaldos}
+        {aba === 'fechar' && <Fechamento emp={emp} semana={semana} semFim={semFim} ocultar={ocultarSaldos}
           contas={getBanco('empresa').contas} onPagar={(p) => pagarEntregador(emp.id, p)} />}
+
+        {aba === 'mensal' && <VisaoMensal emp={emp} ocultar={ocultarSaldos} />}
 
         {aba === 'relatorio' && <Relatorios emp={emp} semana={semana} ocultar={ocultarSaldos} />}
       </div>
+
+      <ConfigModal open={showConfig} onClose={() => setShowConfig(false)} cfg={cfg}
+        onSave={(c) => { setConfigEntregadores(emp.id, c); setSemana(inicioSemana(hoje(), c.inicioSemanaDia ?? cfg.inicioSemanaDia)) }} />
+    </div>
+  )
+}
+
+// ── Config do ciclo semanal ────────────────────────────────────────────────────
+function ConfigModal({ open, onClose, cfg, onSave }: {
+  open: boolean; onClose: () => void; cfg: ConfigEntregadores
+  onSave: (c: Partial<ConfigEntregadores>) => void
+}) {
+  const [inicio, setInicio] = useState(cfg.inicioSemanaDia)
+  const [pgto, setPgto] = useState(cfg.diaPagamento)
+  const [comp, setComp] = useState<ConfigEntregadores['competencia']>(cfg.competencia)
+  return (
+    <Modal open={open} onClose={onClose} title="Configurar ciclo semanal">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-[#8b949e]">Semana começa em</label>
+          <select value={inicio} onChange={e => setInicio(Number(e.target.value))} className="bg-[#0a0f0a] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none">
+            {DIAS_SEMANA.map((d, i) => <option key={i} value={i}>{d}</option>)}
+          </select>
+          <p className="text-[11px] text-[#484f58]">Define o período: {DIAS_SEMANA[inicio]} a {DIAS_SEMANA[(inicio + 6) % 7]}.</p>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-[#8b949e]">Dia de fechamento/pagamento</label>
+          <select value={pgto} onChange={e => setPgto(Number(e.target.value))} className="bg-[#0a0f0a] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none">
+            {DIAS_SEMANA.map((d, i) => <option key={i} value={i}>{d}</option>)}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <label className="text-sm font-medium text-[#8b949e]">Semana que cruza o mês (competência)</label>
+          <select value={comp} onChange={e => setComp(e.target.value as ConfigEntregadores['competencia'])} className="bg-[#0a0f0a] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none">
+            <option value="simples">Simples — tudo no mês do pagamento</option>
+            <option value="rateio">Rateio — divide proporcional entre os meses</option>
+          </select>
+          <p className="text-[11px] text-[#484f58]">O pagamento sempre entra no fluxo de caixa pela data real (regime de caixa). Isto afeta só a visão mensal/competência.</p>
+        </div>
+        <div className="flex gap-3 pt-1">
+          <Button variant="ghost" onClick={onClose} className="flex-1">Cancelar</Button>
+          <Button onClick={() => { onSave({ inicioSemanaDia: inicio, diaPagamento: pgto, competencia: comp }); onClose() }}
+            className="flex-1 text-white" style={{ background: '#e8a020' } as React.CSSProperties}>Salvar</Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+// ── Visão mensal consolidada ────────────────────────────────────────────────────
+function VisaoMensal({ emp, ocultar }: { emp: import('../../store/empresaTypes').Empresa; ocultar: boolean }) {
+  const now = new Date()
+  const [ano, setAno] = useState(now.getFullYear())
+  const [mes, setMes] = useState(now.getMonth() + 1)
+  const { criarCaixinha, getBanco } = useStore()
+
+  const custoEntreg = custoEntregadoresMes(emp, ano, mes)
+  const folha = folhaMensal(emp)
+  const maoObra = custoMaoObraMes(emp, ano, mes)
+  const semanas = semanasDoMes(emp, ano, mes)
+  const cfg = getConfigEntregadores(emp)
+
+  const mudarMes = (delta: number) => {
+    let m = mes + delta, a = ano
+    if (m < 1) { m = 12; a-- } else if (m > 12) { m = 1; a++ }
+    setMes(m); setAno(a)
+  }
+
+  const provisionar = () => {
+    const contas = getBanco('empresa').contas
+    const conta = contas.find(c => c.contaPadrao) ?? contas[0]
+    if (!conta) return
+    const estSemana = semanas.length ? custoEntreg / semanas.length : 0
+    criarCaixinha({
+      contaId: conta.id, nome: 'Entregadores (provisão)', icone: 'Bike', cor: '#e8a020',
+      meta: Math.round(estSemana), rende: false,
+    }, 0, 'empresa')
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-center gap-3 bg-[#161b22] border border-[#21262d] rounded-xl py-2">
+        <button onClick={() => mudarMes(-1)} className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e6edf3]"><ChevronLeft size={18} /></button>
+        <span className="text-sm font-medium text-[#e6edf3]">{MES_NOMES[mes - 1]} / {ano}</span>
+        <button onClick={() => mudarMes(1)} className="p-1.5 rounded-lg text-[#8b949e] hover:text-[#e6edf3]"><ChevronRight size={18} /></button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-xl p-4 border" style={{ background: '#141a14', borderColor: 'rgba(255,255,255,0.08)' }}>
+          <p className="text-[11px] text-[#8b949e]">Entregadores (mês)</p><p className="text-lg font-bold" style={{ color: '#e8a020' }}>{maskSaldo(fmtBRL(custoEntreg), ocultar)}</p>
+        </div>
+        <div className="rounded-xl p-4 border" style={{ background: '#141a14', borderColor: 'rgba(255,255,255,0.08)' }}>
+          <p className="text-[11px] text-[#8b949e]">Folha funcionários</p><p className="text-lg font-bold text-[#e6edf3]">{maskSaldo(fmtBRL(folha), ocultar)}</p>
+        </div>
+        <div className="rounded-xl p-4 border" style={{ background: '#141a14', borderColor: '#e8a02033' }}>
+          <p className="text-[11px] text-[#8b949e]">Mão de obra total</p><p className="text-lg font-bold" style={{ color: '#e8a020' }}>{maskSaldo(fmtBRL(maoObra), ocultar)}</p>
+        </div>
+      </div>
+
+      <p className="text-[11px] text-[#8b949e]">Competência: {cfg.competencia === 'simples' ? 'simples (mês do pagamento)' : 'rateio proporcional entre meses'}.</p>
+
+      {/* semanas do mês */}
+      <div>
+        <p className="text-xs font-medium text-[#8b949e] uppercase tracking-wider mb-2">Semanas do mês</p>
+        <div className="rounded-xl border overflow-hidden" style={{ background: '#141a14', borderColor: 'rgba(255,255,255,0.08)' }}>
+          {semanas.map(semIni => {
+            const semFim = fimSemana(semIni, cfg.inicioSemanaDia)
+            const total = totalSemanaTodos(emp, semIni)
+            const pagos = (emp.pagamentosEntregador ?? []).filter(p => p.semanaInicio === semIni && p.status === 'pago')
+            const pago = pagos.reduce((s, p) => s + p.totalPago, 0)
+            return (
+              <div key={semIni} className="flex items-center gap-3 px-4 py-2.5 border-b border-[#21262d] last:border-0">
+                <span className="flex-1 text-sm text-[#e6edf3]">{fmtDM(semIni)}–{fmtDM(semFim)} {cruzaMes(semIni, semFim) && <span className="text-[10px] text-[#3b82f6]">(cruza mês)</span>}</span>
+                <span className="text-xs text-[#8b949e]">prev. {maskSaldo(fmtBRL(total), ocultar)}</span>
+                <span className="text-sm font-semibold" style={{ color: pago > 0 ? '#1d9e75' : '#484f58' }}>{maskSaldo(fmtBRL(pago), ocultar)} pago</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <Button onClick={provisionar} variant="ghost" className="self-start">
+        <PiggyBank size={15} /> Criar caixinha de provisão semanal
+      </Button>
     </div>
   )
 }
@@ -235,8 +382,8 @@ function EntregadorForm({ open, onClose, initial, onSave }: {
 }
 
 // ── Lançar entregas (rápido em lote por dia) ─────────────────────────────────
-function LancarEntregas({ emp, semana, onReg }: {
-  emp: import('../../store/empresaTypes').Empresa; semana: string
+function LancarEntregas({ emp, semana, semFim, onReg }: {
+  emp: import('../../store/empresaTypes').Empresa; semana: string; semFim: string
   onReg: (r: Omit<import('../../store/empresaTypes').RegistroEntrega, 'id'>) => void
 }) {
   const [data, setData] = useState(hoje())
@@ -255,7 +402,7 @@ function LancarEntregas({ emp, semana, onReg }: {
 
   return (
     <div className="flex flex-col gap-4">
-      <Input label="Data" type="date" value={data} min={semana} max={fimSemana(semana)} onChange={e => setData(e.target.value)} />
+      <Input label="Data" type="date" value={data} min={semana} max={semFim} onChange={e => setData(e.target.value)} />
       {ativos.length === 0 ? <p className="text-sm text-[#8b949e] text-center py-8">Cadastre entregadores ativos primeiro.</p> : (
         <div className="flex flex-col gap-2">
           {ativos.map(e => (
@@ -282,8 +429,8 @@ function LancarEntregas({ emp, semana, onReg }: {
 }
 
 // ── Fechamento + pagamento ────────────────────────────────────────────────────
-function Fechamento({ emp, semana, ocultar, contas, onPagar }: {
-  emp: import('../../store/empresaTypes').Empresa; semana: string; ocultar: boolean
+function Fechamento({ emp, semana, semFim, ocultar, contas, onPagar }: {
+  emp: import('../../store/empresaTypes').Empresa; semana: string; semFim: string; ocultar: boolean
   contas: import('../../store/bancoTypes').ContaBancaria[]
   onPagar: (p: Omit<import('../../store/empresaTypes').PagamentoEntregador, 'id' | 'status' | 'dataPagamento' | 'transacaoId'>) => void
 }) {
@@ -293,7 +440,7 @@ function Fechamento({ emp, semana, ocultar, contas, onPagar }: {
 
   const pagar = (r: typeof resumos[number]) => {
     onPagar({
-      entregadorId: r.entregador.id, semanaInicio: semana, semanaFim: fimSemana(semana),
+      entregadorId: r.entregador.id, semanaInicio: semana, semanaFim: semFim,
       valorFixo: r.valorFixo, totalEntregas: r.totalEntregas, valorEntregas: r.valorEntregas,
       bonus: r.bonus, desconto: r.desconto, totalPago: r.total, contaId,
     })

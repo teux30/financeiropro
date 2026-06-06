@@ -11,6 +11,7 @@ import type {
   Insumo, MovimentoEstoque, DREPeriodo,
   Entregador, RegistroEntrega, PagamentoEntregador,
 } from './empresaTypes'
+import { DEFAULT_CONFIG_ENTREGADORES } from './empresaTypes'
 import type {
   BancoState, ControleFinanceiro, ContaBancaria, Transacao,
   Transferencia, Recorrente, CategoriaFin, OrcamentoItem,
@@ -392,6 +393,7 @@ interface AppState {
   registrarEntrega: (empresaId: string, r: Omit<RegistroEntrega, 'id'>) => void
   excluirRegistroEntrega: (empresaId: string, id: string) => void
   pagarEntregador: (empresaId: string, pag: Omit<PagamentoEntregador, 'id' | 'status' | 'dataPagamento' | 'transacaoId'>) => void
+  setConfigEntregadores: (empresaId: string, cfg: Partial<import('./empresaTypes').ConfigEntregadores>) => void
 
   // Separação
   separacao: Separacao
@@ -745,6 +747,10 @@ export const useStore = create<AppState>()(
           ],
         })) }))
       },
+      setConfigEntregadores: (empresaId, cfg) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({
+        ...e,
+        configEntregadores: { ...DEFAULT_CONFIG_ENTREGADORES, ...(e.configEntregadores ?? {}), ...cfg },
+      })) })),
 
       // Separação
       separacao: DEFAULT_SEPARACAO,

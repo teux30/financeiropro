@@ -127,6 +127,19 @@ export interface PagamentoEntregador {
   transacaoId?: string
 }
 
+// ── Configuração do ciclo semanal de entregadores ────────────────────────────
+export interface ConfigEntregadores {
+  inicioSemanaDia: number   // 0=domingo ... 6=sábado — dia em que a semana de pagamento começa
+  diaPagamento: number      // 0..6 — dia da semana do fechamento/pagamento
+  competencia: 'simples' | 'rateio'  // como atribuir custo de semana que cruza o mês
+}
+
+export const DEFAULT_CONFIG_ENTREGADORES: ConfigEntregadores = {
+  inicioSemanaDia: 1,  // segunda-feira
+  diaPagamento: 0,     // domingo (fim da semana seg-dom)
+  competencia: 'simples',
+}
+
 // ── Empresa ─────────────────────────────────────────────────────────────────
 export interface EmpresaMetas {
   faturamento: number
@@ -156,19 +169,21 @@ export interface Empresa {
   entregadores?: Entregador[]
   registrosEntrega?: RegistroEntrega[]
   pagamentosEntregador?: PagamentoEntregador[]
+  configEntregadores?: ConfigEntregadores
   notas?: import('./notasTypes').Nota[]
 }
 
-// ── Helpers de semana (segunda a domingo) ─────────────────────────────────────
-export function inicioSemana(iso: string): string {
+// ── Helpers de semana (início configurável; padrão segunda-feira) ─────────────
+/** Início da semana que contém `iso`. startDay: 0=domingo..6=sábado (padrão 1=segunda) */
+export function inicioSemana(iso: string, startDay = 1): string {
   const d = new Date(iso.slice(0, 10) + 'T00:00:00')
-  const day = d.getDay() // 0=dom
-  const diff = day === 0 ? -6 : 1 - day // volta até segunda
-  d.setDate(d.getDate() + diff)
+  const diff = (d.getDay() - startDay + 7) % 7
+  d.setDate(d.getDate() - diff)
   return d.toISOString().slice(0, 10)
 }
-export function fimSemana(iso: string): string {
-  const ini = new Date(inicioSemana(iso) + 'T00:00:00')
+/** Fim da semana (início + 6 dias) */
+export function fimSemana(iso: string, startDay = 1): string {
+  const ini = new Date(inicioSemana(iso, startDay) + 'T00:00:00')
   ini.setDate(ini.getDate() + 6)
   return ini.toISOString().slice(0, 10)
 }
