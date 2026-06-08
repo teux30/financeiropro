@@ -1,11 +1,14 @@
-import React, { useState } from 'react'
-import { Users, Plus, Calculator, Edit2, Trash2, X } from 'lucide-react'
+import React, { useState, useMemo } from 'react'
+import { Users, Plus, Calculator, Edit2, Trash2, X, DollarSign } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { Funcionario } from '../../store/empresaTypes'
 import { Modal } from '../../components/ui/Modal'
+import { hoje, fmtData } from '../../lib/format'
 
 const fmtBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
+
+const TIPOS_PGTO = ['Salário', 'Vale', 'Hora extra', 'Bônus', '13º', 'Férias', 'Adiantamento']
 
 // ── empty form state ───────────────────────────────────────────────────────────
 interface FuncForm {
@@ -62,6 +65,9 @@ interface FolhaPanelProps {
 }
 function FolhaPanel({ funcionario, onClose }: FolhaPanelProps) {
   const [horasExtras, setHorasExtras] = useState<number>(0)
+  const getPagamentosPessoa = useStore(s => s.getPagamentosPessoa)
+  const getBanco = useStore(s => s.getBanco)
+  const registrarTransacao = useStore(s => s.registrarTransacao)
 
   const salarioBruto = funcionario.salarioBase
   const inss = salarioBruto * 0.11
@@ -69,6 +75,34 @@ function FolhaPanel({ funcionario, onClose }: FolhaPanelProps) {
   const decimoTerceiro = salarioBruto / 12
   const ferias = (salarioBruto / 12) * 1.333
   const salarioLiquido = salarioBruto - inss + horasExtras
+
+  // ── Pagamentos (lidos das transações vinculadas) ──────────────────────────
+  const anoAtual = new Date().getFullYear()
+  const pagamentos = useMemo(
+    () => getPagamentosPessoa(funcionario.id, `${anoAtual}-01-01`, `${anoAtual}-12-31`),
+    [getPagamentosPessoa, funcionario.id, anoAtual],
+  )
+  const mesAtualStr = hoje().slice(0, 7)
+  const pagoMes = pagamentos.filter(p => p.data.slice(0, 7) === mesAtualStr).reduce((s, p) => s + p.valor, 0)
+  const pagoAno = pagamentos.reduce((s, p) => s + p.valor, 0)
+
+  const contas = getBanco('empresa').contas
+  const [payOpen, setPayOpen] = useState(false)
+  const [payConta, setPayConta] = useState(contas.find(c => c.contaPadrao)?.id ?? contas[0]?.id ?? '')
+  const [payValor, setPayValor] = useState(String(Math.round(salarioLiquido)))
+  const [payTipo, setPayTipo] = useState('Salário')
+  const [payData, setPayData] = useState(hoje())
+
+  const confirmarPagamento = () => {
+    if (!payConta) return
+    registrarTransacao({
+      contaId: payConta, tipo: 'saida', valor: parseFloat(payValor) || 0,
+      descricao: `${payTipo} — ${funcionario.nome}`, categoria: 'folha', data: payData,
+      recorrente: false, origemAuto: 'manual',
+      pessoaId: funcionario.id, pessoaTipo: 'funcionario', competencia: payData.slice(0, 7),
+    }, 'empresa')
+    setPayOpen(false)
+  }
 
   const row = (label: string, value: number, color?: string) => (
     <div
@@ -140,6 +174,70 @@ function FolhaPanel({ funcionario, onClose }: FolhaPanelProps) {
           Custo total empresa (com encargos 28%): <strong style={{ color: '#e6edf3' }}>{fmtBRL(salarioBruto * 1.28)}</strong>
         </div>
       </div>
+
+      {/* Pagamentos (lidos das transações) */}
+      <div style={{ marginTop: 18, borderTop: '1px solid #21262d', paddingTop: 14 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#e6edf3' }}>Pagamentos</span>
+          <button onClick={() => { setPayValor(String(Math.round(salarioLiquido))); setPayData(hoje()); setPayOpen(true) }}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#10b981', border: 'none', borderRadius: 6, color: '#0d1117', padding: '6px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+            <DollarSign size={14} /> Registrar pagamento
+          </button>
+        </div>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 10, fontSize: 13 }}>
+          <span style={{ color: '#8b949e' }}>Pago no mês: <strong style={{ color: '#e8a020' }}>{fmtBRL(pagoMes)}</strong></span>
+          <span style={{ color: '#8b949e' }}>No ano: <strong style={{ color: '#e6edf3' }}>{fmtBRL(pagoAno)}</strong></span>
+        </div>
+        {pagamentos.length === 0 ? (
+          <p style={{ fontSize: 13, color: '#8b949e', margin: 0 }}>Nenhum pagamento registrado este ano. Use "Registrar pagamento" (gera uma transação vinculada).</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {pagamentos.slice(0, 12).map(p => (
+              <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '6px 0', borderBottom: '1px solid #21262d' }}>
+                <span style={{ color: '#e6edf3' }}>{p.descricao}</span>
+                <span style={{ color: '#8b949e' }}>{fmtData(p.data)} · <strong style={{ color: '#ef4444' }}>{fmtBRL(p.valor)}</strong></span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal de pagamento — conta obrigatória */}
+      <Modal open={payOpen} onClose={() => setPayOpen(false)} title={`Pagar — ${funcionario.nome}`}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div>
+            <label style={{ fontSize: 13, color: '#8b949e', display: 'block', marginBottom: 6 }}>Conta de onde sai o dinheiro *</label>
+            <select value={payConta} onChange={e => setPayConta(e.target.value)}
+              style={{ width: '100%', background: '#0d1117', border: `1px solid ${payConta ? '#30363d' : '#ef4444'}`, color: '#e6edf3', borderRadius: 6, padding: '8px 10px', fontSize: 14 }}>
+              <option value="">Selecione…</option>
+              {contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+            {contas.length === 0 && <p style={{ fontSize: 12, color: '#ef4444', margin: '6px 0 0' }}>Cadastre uma conta bancária primeiro.</p>}
+          </div>
+          <div>
+            <label style={{ fontSize: 13, color: '#8b949e', display: 'block', marginBottom: 6 }}>Tipo</label>
+            <select value={payTipo} onChange={e => setPayTipo(e.target.value)}
+              style={{ width: '100%', background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3', borderRadius: 6, padding: '8px 10px', fontSize: 14 }}>
+              {TIPOS_PGTO.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 13, color: '#8b949e', display: 'block', marginBottom: 6 }}>Data</label>
+            <input type="date" value={payData} onChange={e => setPayData(e.target.value)}
+              style={{ width: '100%', background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3', borderRadius: 6, padding: '8px 10px', fontSize: 14 }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 13, color: '#8b949e', display: 'block', marginBottom: 6 }}>Valor (R$)</label>
+            <input type="number" value={payValor} onChange={e => setPayValor(e.target.value)}
+              style={{ width: '100%', background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3', borderRadius: 6, padding: '8px 10px', fontSize: 14 }} />
+          </div>
+          <p style={{ fontSize: 12, color: '#8b949e', margin: 0 }}>Gera uma transação de saída (folha) vinculada e atualiza o saldo da conta. Competência: {payData.slice(0, 7)}.</p>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button onClick={() => setPayOpen(false)} style={{ background: '#21262d', border: '1px solid #30363d', borderRadius: 6, color: '#e6edf3', padding: '8px 16px', fontSize: 14, cursor: 'pointer' }}>Cancelar</button>
+            <button onClick={confirmarPagamento} disabled={!payConta} style={{ background: '#10b981', border: 'none', borderRadius: 6, color: '#0d1117', padding: '8px 16px', fontSize: 14, fontWeight: 700, cursor: payConta ? 'pointer' : 'not-allowed', opacity: payConta ? 1 : 0.5 }}>Confirmar pagamento</button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
