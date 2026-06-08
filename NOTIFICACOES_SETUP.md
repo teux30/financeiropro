@@ -42,27 +42,23 @@ supabase functions deploy enviar-lembretes
 - Deve chegar um e-mail de exemplo na caixa de entrada.
 - Se der erro "Edge Function não publicada", confira o passo 5.
 
-## 7. Agendar o envio diário (cron)
-No Supabase → **Database → Extensions**, ative **pg_cron** e **pg_net**.
-Depois, no SQL Editor, rode (descomente no `notificacoes.sql` e ajuste):
-```sql
-select cron.schedule(
-  'enviar-lembretes-diario',
-  '0 11 * * *',  -- 11:00 UTC = 08:00 Brasília
-  $$
-  select net.http_post(
-    url := 'https://SEU-PROJETO.supabase.co/functions/v1/enviar-lembretes',
-    headers := jsonb_build_object(
-      'Content-Type','application/json',
-      'Authorization','Bearer SUA_SERVICE_ROLE_KEY'
-    ),
-    body := jsonb_build_object('cron', true)
-  );
-  $$
-);
-```
-> A `service_role key` fica só no banco (não no frontend). Em produção, prefira
-> guardá-la no **Vault** do Supabase.
+## 7. Agendar o envio diário (cron) ✅ turnkey
+No Supabase → **SQL Editor**, abra e rode [`supabase/cron-lembretes.sql`](./supabase/cron-lembretes.sql).
+
+Ele faz tudo de forma segura:
+1. Ativa as extensões **pg_cron** e **pg_net**.
+2. Guarda a **Service Role Key** e a **URL do projeto** no **Vault** (criptografado — nunca no frontend).
+3. Agenda a chamada diária da função **`clever-task`** às **08:00 de Brasília** (11:00 UTC).
+
+Antes de rodar, troque só 2 valores no início do arquivo:
+- `https://SEU-PROJECT-REF.supabase.co` → a URL do seu projeto Supabase
+- `COLE_AQUI_SUA_SERVICE_ROLE_KEY` → em **Settings → API → service_role key**
+
+> ⚠️ O nome real da função no seu projeto é **`clever-task`** (o Supabase renomeou).
+> O SQL já usa esse nome. Se um dia recriar como `enviar-lembretes`, ajuste a URL.
+
+**Testar sem esperar o horário:** descomente o bloco "Disparar AGORA" no fim do arquivo e rode.
+**Conferir execuções:** `select * from cron.job_run_details order by start_time desc limit 10;`
 
 ---
 
