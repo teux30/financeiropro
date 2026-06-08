@@ -1,16 +1,21 @@
-import { useMemo } from 'react'
-import { ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { ArrowLeft, ArrowDownLeft, ArrowUpRight, ArrowLeftRight, SlidersHorizontal } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useStore } from '../../store/useStore'
 import { CategoriaIcon } from '../../lib/banco-ui'
 import { fmtBRL, fmtBRLshort, fmtData, labelDia, maskSaldo } from '../../lib/format'
+import { Modal } from '../../components/ui/Modal'
+import { Input } from '../../components/ui/Input'
+import { Button } from '../../components/ui/Button'
 import { CaixinhasSection } from './CaixinhasSection'
 
 export function ContaDetalhe() {
   const {
     getBanco, getSaldoConta, getSaldoReservado, activeContaId,
-    setActiveView, ocultarSaldos,
+    setActiveView, ocultarSaldos, ajustarSaldoConta,
   } = useStore()
+  const [ajusteOpen, setAjusteOpen] = useState(false)
+  const [ajusteValor, setAjusteValor] = useState('')
   const banco = getBanco()
   const conta = banco.contas.find(c => c.id === activeContaId)
 
@@ -75,6 +80,9 @@ export function ContaDetalhe() {
             <button onClick={() => setActiveView('transferencias')} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-medium">
               <ArrowLeftRight size={14} /> Transferir
             </button>
+            <button onClick={() => { setAjusteValor(String(saldo.toFixed(2))); setAjusteOpen(true) }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/20 hover:bg-white/30 text-white text-xs font-medium">
+              <SlidersHorizontal size={14} /> Ajustar saldo
+            </button>
           </div>
         </div>
       </div>
@@ -133,6 +141,28 @@ export function ContaDetalhe() {
           )}
         </div>
       </div>
+
+      {/* Ajuste de saldo */}
+      <Modal open={ajusteOpen} onClose={() => setAjusteOpen(false)} title="Ajustar saldo da conta">
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-[#8b949e]">
+            Saldo atual calculado: <strong className="text-[#e6edf3]">{fmtBRL(saldo)}</strong>.
+            Informe o saldo real da conta e criaremos um lançamento de ajuste para bater exatamente.
+          </p>
+          <Input label="Saldo real (R$)" type="number" inputMode="decimal" value={ajusteValor}
+            onChange={e => setAjusteValor(e.target.value)} placeholder="0,00" autoFocus />
+          {reservado > 0 && (
+            <p className="text-xs text-[#8b949e]">
+              Em caixinhas: {fmtBRL(reservado)}. Após o ajuste, o saldo livre será {fmtBRL((parseFloat(ajusteValor) || 0) - reservado)}.
+            </p>
+          )}
+          <div className="flex gap-3">
+            <Button variant="ghost" onClick={() => setAjusteOpen(false)} className="flex-1">Cancelar</Button>
+            <Button onClick={() => { ajustarSaldoConta(conta.id, parseFloat(ajusteValor) || 0); setAjusteOpen(false) }}
+              className="flex-1 text-white" style={{ background: conta.cor } as React.CSSProperties}>Ajustar</Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

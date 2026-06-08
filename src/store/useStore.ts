@@ -198,6 +198,12 @@ function normBanco(b?: BancoState): BancoState {
   }
 }
 
+// Data local YYYY-MM-DD (evita o deslocamento de fuso do toISOString, que usa UTC)
+function hojeLocal(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 // Detecta transações 'manual' que duplicam um pagamento/recebimento de conta
 // (resíduo da migração antiga do fluxoCaixa, que rodava em dobro com a transação real).
 // Retorna os ids das duplicatas 'manual' a remover. Cada conta_pagar/receber consome
@@ -451,6 +457,8 @@ interface AppState {
   adicionarConta: (c: Omit<ContaBancaria, 'id' | 'criadoEm'>, perfil?: Perfil) => void
   editarConta: (id: string, data: Partial<ContaBancaria>, perfil?: Perfil) => void
   excluirConta: (id: string, perfil?: Perfil) => void
+  /** Cria um lançamento de ajuste para o saldo da conta bater exatamente em saldoAlvo. */
+  ajustarSaldoConta: (contaId: string, saldoAlvo: number, perfil?: Perfil) => void
   getSaldoConta: (contaId: string, perfil?: Perfil) => number
   getSaldoTotal: (perfil?: Perfil) => number
 
@@ -876,6 +884,17 @@ export const useStore = create<AppState>()(
         const delta = b.transacoes.filter(t => t.contaId === contaId)
           .reduce((sum, t) => sum + (t.tipo === 'entrada' ? t.valor : -t.valor), 0)
         return conta.saldoInicial + delta
+      },
+      ajustarSaldoConta: (contaId, saldoAlvo, perfil) => {
+        const s = get()
+        const atual = s.getSaldoConta(contaId, perfil)
+        const diff = Math.round((saldoAlvo - atual) * 100) / 100
+        if (Math.abs(diff) < 0.01) return
+        s.registrarTransacao({
+          contaId, tipo: diff > 0 ? 'entrada' : 'saida', valor: Math.abs(diff),
+          descricao: 'Ajuste de saldo', categoria: diff > 0 ? 'outros_entrada' : 'outros_saida',
+          data: hojeLocal(), recorrente: false, origemAuto: 'manual',
+        }, perfil)
       },
       getSaldoTotal: (perfil) => {
         const s = get()
