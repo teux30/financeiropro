@@ -5,6 +5,7 @@ import type { Insumo, MovimentoEstoque } from '../../store/empresaTypes'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { fmtData } from '../../lib/format'
 
 const fmtBRL = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 })
 type InsumoStatus = 'OK' | 'BAIXO' | 'CRITICO'
@@ -208,7 +209,7 @@ export function EstoquePage() {
                   const ins = insumos.find(i => i.id === m.insumoId)
                   return (
                     <tr key={m.id} className="border-b border-[#21262d] last:border-0 hover:bg-[#1c2128]">
-                      <td className="px-4 py-2.5 text-[#8b949e]">{new Date(m.data).toLocaleDateString('pt-BR')}</td>
+                      <td className="px-4 py-2.5 text-[#8b949e]">{fmtData(m.data)}</td>
                       <td className="px-4 py-2.5 text-[#e6edf3]">{ins?.nome ?? '—'}</td>
                       <td className="px-4 py-2.5">
                         <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: m.tipo === 'entrada' ? '#10b98122' : '#ef444422', color: m.tipo === 'entrada' ? '#10b981' : '#ef4444' }}>

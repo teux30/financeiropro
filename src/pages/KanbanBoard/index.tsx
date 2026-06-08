@@ -73,7 +73,7 @@ function KanbanCardEl({ card, onEdit, onDelete }: { card: KanbanCard; onEdit: ()
       {card.dueDate && (
         <div className="flex items-center gap-1 text-xs text-[#8b949e]">
           <Calendar size={10} />
-          <span>{new Date(card.dueDate).toLocaleDateString('pt-BR')}</span>
+          <span>{new Date(card.dueDate.slice(0, 10) + 'T12:00:00').toLocaleDateString('pt-BR')}</span>
         </div>
       )}
     </div>
