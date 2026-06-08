@@ -7,6 +7,7 @@ import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { DatePicker } from '../../components/ui/DatePicker'
+import { DateRangePicker, type Range } from '../../components/ui/DateRangePicker'
 import { CategoriaIcon } from '../../lib/banco-ui'
 import { fmtBRL, fmtData, labelDia, hoje, maskSaldo } from '../../lib/format'
 import { CapturaIA } from './CapturaIA'
@@ -48,16 +49,21 @@ export function TransacoesPage() {
   const [fTipo, setFTipo] = useState<'todos' | TransacaoTipo>('todos')
   const [fCat, setFCat] = useState<'todas' | CategoriaFin>('todas')
   const [busca, setBusca] = useState('')
+  const mesRef = hoje().slice(0, 7)
+  const mesIni = `${mesRef}-01`
+  const mesFim = `${mesRef}-${String(new Date(Number(mesRef.slice(0, 4)), Number(mesRef.slice(5, 7)), 0).getDate()).padStart(2, '0')}`
+  const [periodo, setPeriodo] = useState<Range>({ de: mesIni, ate: mesFim })
 
   const filtradas = useMemo(() => {
     return banco.transacoes
       .filter(t => t.categoria !== 'transferencia')
+      .filter(t => t.data.slice(0, 10) >= periodo.de && t.data.slice(0, 10) <= periodo.ate)
       .filter(t => fConta === 'todas' || t.contaId === fConta)
       .filter(t => fTipo === 'todos' || t.tipo === fTipo)
       .filter(t => fCat === 'todas' || t.categoria === fCat)
       .filter(t => !busca || t.descricao.toLowerCase().includes(busca.toLowerCase()))
       .sort((a, b) => b.data.localeCompare(a.data))
-  }, [banco.transacoes, fConta, fTipo, fCat, busca])
+  }, [banco.transacoes, fConta, fTipo, fCat, busca, periodo])
 
   const totEntradas = filtradas.filter(t => t.tipo === 'entrada').reduce((s, t) => s + t.valor, 0)
   const totSaidas = filtradas.filter(t => t.tipo === 'saida').reduce((s, t) => s + t.valor, 0)
@@ -161,6 +167,7 @@ export function TransacoesPage() {
 
         {/* Filtros */}
         <div className="flex flex-wrap gap-2">
+          <DateRangePicker value={periodo} onChange={setPeriodo} accent={accent} />
           <div className="relative flex-1 min-w-[140px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#484f58]" />
             <input value={busca} onChange={e => setBusca(e.target.value)} placeholder="Buscar..."

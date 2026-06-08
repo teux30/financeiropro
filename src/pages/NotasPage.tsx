@@ -9,10 +9,15 @@ import { NOTA_CORES } from '../store/notasTypes'
 import { Modal } from '../components/ui/Modal'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
+import { DatePicker } from '../components/ui/DatePicker'
 import { sugerirDaNota } from '../services/notasIA'
 
 const nano = () => Math.random().toString(36).slice(2, 9)
-const hoje = () => new Date().toISOString().slice(0, 16)
+const hoje = () => {
+  const d = new Date()
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
 
 type Aba = 'mural' | 'agenda' | 'arquivadas'
 type Ordenar = 'recente' | 'lembrete' | 'cor' | 'alfabetico'
@@ -334,18 +339,24 @@ function NotaEditor({ open, onClose, accent, initial, contas, onSave }: {
         </button>
         {iaMsg && <p className="text-xs" style={{ color: iaMsg.includes('✓') ? '#1d9e75' : '#e8a020' }}>{iaMsg}</p>}
 
-        {tipo === 'lembrete' && (
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Data/hora" type="datetime-local" value={dataLembrete || hoje()} onChange={e => setDataLembrete(e.target.value)} />
-            <div className="flex flex-col gap-1.5">
-              <label className="text-sm font-medium text-[#8b949e]">Repetir</label>
-              <select value={recorrencia} onChange={e => setRecorrencia(e.target.value as typeof recorrencia)}
-                className="bg-[#0a0f0a] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none">
-                <option value="nenhuma">Não repetir</option><option value="semanal">Semanal</option><option value="mensal">Mensal</option>
-              </select>
+        {tipo === 'lembrete' && (() => {
+          const base = dataLembrete || hoje()
+          const dataParte = base.slice(0, 10)
+          const horaParte = base.slice(11, 16) || '09:00'
+          return (
+            <div className="grid grid-cols-2 gap-3">
+              <DatePicker label="Data" accent={accent} value={dataParte} onChange={d => setDataLembrete(`${d}T${horaParte}`)} />
+              <Input label="Hora" type="time" value={horaParte} onChange={e => setDataLembrete(`${dataParte}T${e.target.value || '09:00'}`)} />
+              <div className="flex flex-col gap-1.5 col-span-2">
+                <label className="text-sm font-medium text-[#8b949e]">Repetir</label>
+                <select value={recorrencia} onChange={e => setRecorrencia(e.target.value as typeof recorrencia)}
+                  className="bg-[#0a0f0a] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none">
+                  <option value="nenhuma">Não repetir</option><option value="semanal">Semanal</option><option value="mensal">Mensal</option>
+                </select>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {tipo === 'financeira' && (
           <div className="flex flex-col gap-1.5">
