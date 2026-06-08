@@ -68,8 +68,8 @@ function AppShell() {
     // isolamento: nunca renderiza view de outro perfil (mostra dashboard até o guard corrigir)
     if (!viewPermitida(activeView, perfilAtivo)) return <Dashboard />
     switch (activeView) {
-      // Personal
-      case 'dashboard':    return <Dashboard />
+      // Dashboard depende do perfil ativo (isolado): Pessoal vs Empresa
+      case 'dashboard':    return perfilAtivo === 'empresa' ? <DashboardEmpresa /> : <Dashboard />
       case 'projects':     return <ProjectsPanel />
       case 'editor':       return <MindMapEditor />
       case 'kanban':       return <KanbanBoard />

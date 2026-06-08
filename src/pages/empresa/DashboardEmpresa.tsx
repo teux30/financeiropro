@@ -19,6 +19,8 @@ import {
   ShoppingCart,
 } from 'lucide-react';
 import { useStore } from '../../store/useStore';
+import { PainelDestaque } from '../../components/dashboard/PainelDestaque';
+import { custoMaoObraMes, folhaMensal, custoEntregadoresMes } from '../../store/entregadorSelectors';
 
 const fmtBRL = (v: number) =>
   v.toLocaleString('pt-BR', {
@@ -64,6 +66,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 export default function DashboardEmpresa() {
   const getEmpresaAtiva = useStore((s: any) => s.getEmpresaAtiva);
   const getBanco = useStore((s: any) => s.getBanco);
+  const getSaldoTotal = useStore((s: any) => s.getSaldoTotal);
   const empresa = getEmpresaAtiva();
 
   if (!empresa) {
@@ -342,6 +345,25 @@ export default function DashboardEmpresa() {
               : `${contasVencendo7dias} contas próximas`}
           </p>
         </div>
+      </div>
+
+      {/* Segunda linha: Saldo PJ + Mão de obra */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(200px,1fr))', gap: 16, marginBottom: 24 }}>
+        <div style={cardStyle}>
+          <div style={cardHeaderStyle}><span style={cardLabelStyle}>Saldo em contas (PJ)</span></div>
+          <p style={{ ...cardValueStyle, color: '#e6edf3' }}>{fmtBRL(getSaldoTotal('empresa'))}</p>
+          <p style={cardSubStyle}>{(getBanco('empresa').contas ?? []).length} conta(s)</p>
+        </div>
+        <div style={cardStyle}>
+          <div style={cardHeaderStyle}><span style={cardLabelStyle}>Mão de obra (mês)</span></div>
+          <p style={{ ...cardValueStyle, color: '#e8a020' }}>{fmtBRL(custoMaoObraMes(empresa, year, month + 1))}</p>
+          <p style={cardSubStyle}>Folha {fmtBRL(folhaMensal(empresa))} + entreg. {fmtBRL(custoEntregadoresMes(empresa, year, month + 1))}</p>
+        </div>
+      </div>
+
+      {/* Alertas/Lembretes + Notas (empresa) */}
+      <div style={{ marginBottom: 24 }}>
+        <PainelDestaque visao="empresa" />
       </div>
 
       {/* Chart + Alerts */}
