@@ -788,6 +788,7 @@ export const useStore = create<AppState>()(
             descricao: `Pagamento entregador${ent ? `: ${ent.nome}` : ''}`,
             categoria: 'folha', data: hojeLocal(),
             recorrente: false, origemAuto: 'manual',
+            pessoaId: pag.entregadorId, pessoaTipo: 'entregador', semanaRef: pag.semanaInicio,
           }, 'empresa')
           transacaoId = tx.id
         }

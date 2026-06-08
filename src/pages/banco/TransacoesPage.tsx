@@ -13,14 +13,22 @@ import { CapturaIA } from './CapturaIA'
 interface FormState {
   contaId: string; tipo: TransacaoTipo; valor: string; descricao: string
   categoria: CategoriaFin; data: string; observacoes: string; fornecedorNome: string
+  pessoaKey: string  // "funcionario:<id>" | "entregador:<id>"
 }
 
 export function TransacoesPage() {
   const {
     perfilAtivo, getBanco, registrarTransacao, editarTransacao, excluirTransacao,
-    toggleConferida, ocultarSaldos, getFornecedores, adicionarFornecedor,
+    toggleConferida, ocultarSaldos, getFornecedores, adicionarFornecedor, getEmpresaAtiva,
   } = useStore()
   const fornecedores = perfilAtivo === 'empresa' ? getFornecedores() : []
+  const empAtiva = perfilAtivo === 'empresa' ? getEmpresaAtiva() : null
+  const pessoas = useMemo(() => {
+    if (!empAtiva) return [] as { key: string; nome: string; sub: string }[]
+    const funcs = (empAtiva.funcionarios ?? []).map(f => ({ key: `funcionario:${f.id}`, nome: f.nome, sub: f.cargo || 'Funcionário' }))
+    const ents = (empAtiva.entregadores ?? []).map(e => ({ key: `entregador:${e.id}`, nome: e.nome, sub: 'Entregador' }))
+    return [...funcs, ...ents]
+  }, [empAtiva])
   const banco = getBanco()
   const accent = perfilAtivo === 'pessoal' ? '#1d9e75' : '#e8a020'
 
@@ -31,7 +39,7 @@ export function TransacoesPage() {
   const [capturaOpen, setCapturaOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>({
-    contaId: '', tipo: 'saida', valor: '', descricao: '', categoria: catsSaida[0], data: hoje(), observacoes: '', fornecedorNome: '',
+    contaId: '', tipo: 'saida', valor: '', descricao: '', categoria: catsSaida[0], data: hoje(), observacoes: '', fornecedorNome: '', pessoaKey: '',
   })
 
   // filtros
@@ -70,31 +78,42 @@ export function TransacoesPage() {
   const openNew = () => {
     if (banco.contas.length === 0) return
     const padrao = banco.contas.find(c => c.contaPadrao) ?? banco.contas[0]
-    setForm({ contaId: padrao.id, tipo: 'saida', valor: '', descricao: '', categoria: catsSaida[0], data: hoje(), observacoes: '', fornecedorNome: '' })
+    setForm({ contaId: padrao.id, tipo: 'saida', valor: '', descricao: '', categoria: catsSaida[0], data: hoje(), observacoes: '', fornecedorNome: '', pessoaKey: '' })
     setEditId(null); setShowModal(true)
   }
   const openEdit = (t: Transacao) => {
     const fNome = t.fornecedorId ? (fornecedores.find(f => f.id === t.fornecedorId)?.nome ?? t.fornecedor ?? '') : (t.fornecedor ?? '')
-    setForm({ contaId: t.contaId, tipo: t.tipo, valor: String(t.valor), descricao: t.descricao, categoria: t.categoria, data: t.data.slice(0, 10), observacoes: t.observacoes ?? '', fornecedorNome: fNome })
+    setForm({ contaId: t.contaId, tipo: t.tipo, valor: String(t.valor), descricao: t.descricao, categoria: t.categoria, data: t.data.slice(0, 10), observacoes: t.observacoes ?? '', fornecedorNome: fNome, pessoaKey: t.pessoaId && t.pessoaTipo ? `${t.pessoaTipo}:${t.pessoaId}` : '' })
     setEditId(t.id); setShowModal(true)
   }
+  const ehFolha = perfilAtivo === 'empresa' && form.tipo === 'saida' && form.categoria === 'folha'
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.contaId || !form.valor) return
+    if (ehFolha && !form.pessoaKey) return // pessoa obrigatória em pagamento de folha
     // fornecedor (só empresa, saída): vincula existente ou cadastra rápido
     let fornecedorId: string | undefined
     let fornecedor: string | undefined
     const fNome = form.fornecedorNome.trim()
-    if (perfilAtivo === 'empresa' && form.tipo === 'saida' && fNome) {
+    if (perfilAtivo === 'empresa' && form.tipo === 'saida' && !ehFolha && fNome) {
       const existente = fornecedores.find(f => f.nome.toLowerCase() === fNome.toLowerCase())
       const forn = existente ?? adicionarFornecedor({ nome: fNome, status: 'ativo' })
       fornecedorId = forn.id; fornecedor = forn.nome
+    }
+    // pessoa (folha): vincula funcionário ou entregador
+    let pessoaId: string | undefined
+    let pessoaTipo: 'funcionario' | 'entregador' | undefined
+    if (ehFolha && form.pessoaKey) {
+      const [tipo, id] = form.pessoaKey.split(':')
+      pessoaTipo = tipo as 'funcionario' | 'entregador'; pessoaId = id
     }
     const payload = {
       contaId: form.contaId, tipo: form.tipo, valor: parseFloat(form.valor) || 0,
       descricao: form.descricao.trim() || CATEGORIAS[form.categoria].label,
       categoria: form.categoria, data: form.data, recorrente: false,
-      observacoes: form.observacoes.trim() || undefined, fornecedorId, fornecedor, origemAuto: 'manual' as const,
+      observacoes: form.observacoes.trim() || undefined, fornecedorId, fornecedor,
+      pessoaId, pessoaTipo, competencia: ehFolha ? form.data.slice(0, 7) : undefined,
+      origemAuto: 'manual' as const,
     }
     if (editId) editarTransacao(editId, payload)
     else registrarTransacao(payload)
@@ -242,7 +261,7 @@ export function TransacoesPage() {
             </div>
           </div>
           <Input label="Data" type="date" value={form.data} onChange={e => setForm(f => ({ ...f, data: e.target.value }))} />
-          {perfilAtivo === 'empresa' && form.tipo === 'saida' && (
+          {perfilAtivo === 'empresa' && form.tipo === 'saida' && !ehFolha && (
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-[#8b949e]">Fornecedor (opcional)</label>
               <input list="forn-list" value={form.fornecedorNome} onChange={e => setForm(f => ({ ...f, fornecedorNome: e.target.value }))}
@@ -254,9 +273,22 @@ export function TransacoesPage() {
               <p className="text-[11px] text-[#484f58]">Se digitar um nome novo, ele é cadastrado automaticamente.</p>
             </div>
           )}
+          {ehFolha && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-[#8b949e]">Pessoa (obrigatório) *</label>
+              <select value={form.pessoaKey} onChange={e => setForm(f => ({ ...f, pessoaKey: e.target.value }))}
+                className="bg-[#0a0f0a] border rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none"
+                style={{ borderColor: form.pessoaKey ? '#30363d' : '#ef4444' }}>
+                <option value="">Selecione a pessoa…</option>
+                {pessoas.map(p => <option key={p.key} value={p.key}>{p.nome} — {p.sub}</option>)}
+              </select>
+              <p className="text-[11px] text-[#484f58]">O pagamento alimenta a ficha do funcionário/entregador. Competência: {form.data.slice(0, 7)}.</p>
+              {pessoas.length === 0 && <p className="text-[11px] text-[#ef4444]">Cadastre funcionários (RH) ou entregadores primeiro.</p>}
+            </div>
+          )}
           <div className="flex gap-3 pt-1">
             <Button type="button" variant="ghost" onClick={() => setShowModal(false)} className="flex-1">Cancelar</Button>
-            <Button type="submit" className="flex-1 text-white" style={{ background: accent } as React.CSSProperties}>Salvar</Button>
+            <Button type="submit" disabled={ehFolha && !form.pessoaKey} className="flex-1 text-white" style={{ background: accent, opacity: ehFolha && !form.pessoaKey ? 0.5 : 1 } as React.CSSProperties}>Salvar</Button>
           </div>
         </form>
       </Modal>
