@@ -12,14 +12,15 @@ import { CapturaIA } from './CapturaIA'
 
 interface FormState {
   contaId: string; tipo: TransacaoTipo; valor: string; descricao: string
-  categoria: CategoriaFin; data: string; observacoes: string
+  categoria: CategoriaFin; data: string; observacoes: string; fornecedorNome: string
 }
 
 export function TransacoesPage() {
   const {
     perfilAtivo, getBanco, registrarTransacao, editarTransacao, excluirTransacao,
-    toggleConferida, ocultarSaldos,
+    toggleConferida, ocultarSaldos, getFornecedores, adicionarFornecedor,
   } = useStore()
+  const fornecedores = perfilAtivo === 'empresa' ? getFornecedores() : []
   const banco = getBanco()
   const accent = perfilAtivo === 'pessoal' ? '#1d9e75' : '#e8a020'
 
@@ -30,7 +31,7 @@ export function TransacoesPage() {
   const [capturaOpen, setCapturaOpen] = useState(false)
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>({
-    contaId: '', tipo: 'saida', valor: '', descricao: '', categoria: catsSaida[0], data: hoje(), observacoes: '',
+    contaId: '', tipo: 'saida', valor: '', descricao: '', categoria: catsSaida[0], data: hoje(), observacoes: '', fornecedorNome: '',
   })
 
   // filtros
@@ -69,21 +70,31 @@ export function TransacoesPage() {
   const openNew = () => {
     if (banco.contas.length === 0) return
     const padrao = banco.contas.find(c => c.contaPadrao) ?? banco.contas[0]
-    setForm({ contaId: padrao.id, tipo: 'saida', valor: '', descricao: '', categoria: catsSaida[0], data: hoje(), observacoes: '' })
+    setForm({ contaId: padrao.id, tipo: 'saida', valor: '', descricao: '', categoria: catsSaida[0], data: hoje(), observacoes: '', fornecedorNome: '' })
     setEditId(null); setShowModal(true)
   }
   const openEdit = (t: Transacao) => {
-    setForm({ contaId: t.contaId, tipo: t.tipo, valor: String(t.valor), descricao: t.descricao, categoria: t.categoria, data: t.data.slice(0, 10), observacoes: t.observacoes ?? '' })
+    const fNome = t.fornecedorId ? (fornecedores.find(f => f.id === t.fornecedorId)?.nome ?? t.fornecedor ?? '') : (t.fornecedor ?? '')
+    setForm({ contaId: t.contaId, tipo: t.tipo, valor: String(t.valor), descricao: t.descricao, categoria: t.categoria, data: t.data.slice(0, 10), observacoes: t.observacoes ?? '', fornecedorNome: fNome })
     setEditId(t.id); setShowModal(true)
   }
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.contaId || !form.valor) return
+    // fornecedor (só empresa, saída): vincula existente ou cadastra rápido
+    let fornecedorId: string | undefined
+    let fornecedor: string | undefined
+    const fNome = form.fornecedorNome.trim()
+    if (perfilAtivo === 'empresa' && form.tipo === 'saida' && fNome) {
+      const existente = fornecedores.find(f => f.nome.toLowerCase() === fNome.toLowerCase())
+      const forn = existente ?? adicionarFornecedor({ nome: fNome, status: 'ativo' })
+      fornecedorId = forn.id; fornecedor = forn.nome
+    }
     const payload = {
       contaId: form.contaId, tipo: form.tipo, valor: parseFloat(form.valor) || 0,
       descricao: form.descricao.trim() || CATEGORIAS[form.categoria].label,
       categoria: form.categoria, data: form.data, recorrente: false,
-      observacoes: form.observacoes.trim() || undefined, origemAuto: 'manual' as const,
+      observacoes: form.observacoes.trim() || undefined, fornecedorId, fornecedor, origemAuto: 'manual' as const,
     }
     if (editId) editarTransacao(editId, payload)
     else registrarTransacao(payload)
@@ -231,6 +242,18 @@ export function TransacoesPage() {
             </div>
           </div>
           <Input label="Data" type="date" value={form.data} onChange={e => setForm(f => ({ ...f, data: e.target.value }))} />
+          {perfilAtivo === 'empresa' && form.tipo === 'saida' && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-sm font-medium text-[#8b949e]">Fornecedor (opcional)</label>
+              <input list="forn-list" value={form.fornecedorNome} onChange={e => setForm(f => ({ ...f, fornecedorNome: e.target.value }))}
+                placeholder="Selecione ou digite para cadastrar"
+                className="bg-[#0a0f0a] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none focus:border-[#e8a020]" />
+              <datalist id="forn-list">
+                {fornecedores.map(f => <option key={f.id} value={f.nome} />)}
+              </datalist>
+              <p className="text-[11px] text-[#484f58]">Se digitar um nome novo, ele é cadastrado automaticamente.</p>
+            </div>
+          )}
           <div className="flex gap-3 pt-1">
             <Button type="button" variant="ghost" onClick={() => setShowModal(false)} className="flex-1">Cancelar</Button>
             <Button type="submit" className="flex-1 text-white" style={{ background: accent } as React.CSSProperties}>Salvar</Button>

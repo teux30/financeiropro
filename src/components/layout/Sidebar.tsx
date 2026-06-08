@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Calculator, Brain, BookOpen, ArrowLeftRight,
   BarChart3, Package, Users, Activity,
   ArrowDownCircle, ArrowUpCircle, TrendingUp, ChevronRight,
-  Settings, Wallet, Receipt, CreditCard, Building2, Bike, StickyNote,
+  Settings, Wallet, Receipt, CreditCard, Building2, Bike, StickyNote, Truck,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AppView } from '../../store/useStore'
@@ -87,6 +87,7 @@ const EMPRESA_NAV: NavSection[] = [
       { id: 'empresa_pagar', label: 'Contas a Pagar', icon: ArrowDownCircle },
       { id: 'empresa_receber', label: 'Contas a Receber', icon: ArrowUpCircle },
       { id: 'empresa_estoque', label: 'Estoque e CMV', icon: Package },
+      { id: 'empresa_fornecedores', label: 'Fornecedores', icon: Truck },
     ],
   },
   {
