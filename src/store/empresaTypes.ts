@@ -170,6 +170,7 @@ export interface Empresa {
   registrosEntrega?: RegistroEntrega[]
   pagamentosEntregador?: PagamentoEntregador[]
   configEntregadores?: ConfigEntregadores
+  fornecedores?: string[]   // cadastro de fornecedores para vincular às saídas/contas
   notas?: import('./notasTypes').Nota[]
 }
 

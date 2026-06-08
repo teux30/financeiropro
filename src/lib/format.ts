@@ -11,21 +11,29 @@ export const fmtBRLshort = (v: number): string => {
   return `${sign}R$ ${abs.toFixed(0)}`
 }
 
+// Datas "YYYY-MM-DD" sem hora são interpretadas como UTC pelo JS e, no fuso do
+// Brasil (UTC-3), acabam exibindo o dia anterior. Forçamos hora local meio-dia
+// para datas só-data, evitando o deslocamento.
+const parseLocal = (iso: string): Date =>
+  iso.length <= 10 ? new Date(iso + 'T12:00:00') : new Date(iso)
+
 export const fmtData = (iso: string): string => {
-  const d = new Date(iso)
-  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  return parseLocal(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 export const fmtDataHora = (iso: string): string => {
-  const d = new Date(iso)
-  return d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return parseLocal(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 export const fmtPct = (v: number): string => `${v >= 0 ? '' : ''}${v.toFixed(1)}%`
 
-export const hoje = (): string => new Date().toISOString().slice(0, 10)
+// Data local YYYY-MM-DD (evita o deslocamento do toISOString, que usa UTC)
+export const hoje = (): string => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
-export const mesAtual = (): string => new Date().toISOString().slice(0, 7) // YYYY-MM
+export const mesAtual = (): string => hoje().slice(0, 7) // YYYY-MM
 
 export const MESES_CURTO = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 

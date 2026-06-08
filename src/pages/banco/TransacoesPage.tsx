@@ -7,7 +7,7 @@ import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { CategoriaIcon } from '../../lib/banco-ui'
-import { fmtBRL, labelDia, hoje, maskSaldo } from '../../lib/format'
+import { fmtBRL, fmtData, labelDia, hoje, maskSaldo } from '../../lib/format'
 import { CapturaIA } from './CapturaIA'
 
 interface FormState {
@@ -173,7 +173,7 @@ export function TransacoesPage() {
                             <span className="w-2 h-2 rounded-full" style={{ background: contaCor(t.contaId) }} />
                             {contaNome(t.contaId)}
                           </span>
-                          <span className="text-[11px] text-[#484f58]">{new Date(t.data).toLocaleDateString('pt-BR')}</span>
+                          <span className="text-[11px] text-[#484f58]">{fmtData(t.data)}</span>
                         </div>
                       </div>
                       <div className="flex items-center gap-2">

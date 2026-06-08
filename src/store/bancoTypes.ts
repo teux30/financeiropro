@@ -54,6 +54,7 @@ export interface Transacao {
   conferida?: boolean
   comprovante?: string
   observacoes?: string
+  fornecedor?: string      // fornecedor/origem específico (ex: "Atacadão", "Coca-Cola")
   origemAuto?: 'conta_pagar' | 'conta_receber' | 'pro_labore' | 'manual'
 }
 

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Plus, Pencil, Trash2, TrendingUp, Info } from 'lucide-react';
 import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
@@ -71,7 +71,7 @@ export function FluxoCaixaPage() {
 
   const {
     getBanco, registrarTransacao, editarTransacao, excluirTransacao,
-    getEmpresaAtiva, migrarFluxoParaTransacoes,
+    getEmpresaAtiva, contarDuplicatasMigracao, removerDuplicatasMigracao,
   } = useStore();
 
   const empresa = getEmpresaAtiva();
@@ -80,14 +80,9 @@ export function FluxoCaixaPage() {
   const contaPadraoId = useMemo(() => (contas.find(c => c.contaPadrao) ?? contas[0])?.id ?? '', [contas]);
   const contaNome = (id?: string) => contas.find(c => c.id === id)?.nome;
 
-  // ── Migração automática de lançamentos órfãos (uma vez) ───────────────────
-  const [migradas, setMigradas] = useState(0);
-  useEffect(() => {
-    if (empresa && (empresa.fluxoCaixa?.length ?? 0) > 0 && contaPadraoId) {
-      const n = migrarFluxoParaTransacoes(empresa.id);
-      if (n > 0) setMigradas(n);
-    }
-  }, [empresa, contaPadraoId, migrarFluxoParaTransacoes]);
+  // ── Limpeza de duplicatas (resíduo da migração antiga) ────────────────────
+  const [removidas, setRemovidas] = useState(-1);
+  const dupCount = useMemo(() => contarDuplicatasMigracao(PERFIL), [banco.transacoes, contarDuplicatasMigracao]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const monthPrefix = `${selectedAno}-${String(selectedMes).padStart(2, '0')}`;
   const monthEnd = `${monthPrefix}-${String(new Date(selectedAno, selectedMes, 0).getDate()).padStart(2, '0')}`;
@@ -250,8 +245,19 @@ export function FluxoCaixaPage() {
           </Button>
         </div>
 
-        {migradas > 0 && (
-          <div style={bannerStyle('#1d9e75')}><Info size={15} /> {migradas} lançamento(s) antigo(s) migrado(s) para Transações.</div>
+        {dupCount > 0 && removidas < 0 && (
+          <div style={{ ...bannerStyle('#ef4444'), justifyContent: 'space-between' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Info size={15} /> {dupCount} lançamento(s) duplicado(s) detectado(s) (resíduo de migração) inflando o saldo.
+            </span>
+            <button onClick={() => setRemovidas(removerDuplicatasMigracao(PERFIL))}
+              style={{ background: '#ef4444', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>
+              Remover duplicados
+            </button>
+          </div>
+        )}
+        {removidas > 0 && (
+          <div style={bannerStyle('#1d9e75')}><Info size={15} /> {removidas} duplicado(s) removido(s). O saldo das contas foi corrigido.</div>
         )}
         {semContas && (
           <div style={bannerStyle('#e8a020')}><Info size={15} /> Cadastre uma conta bancária (Empresa → Minhas Contas) para lançar movimentações.</div>

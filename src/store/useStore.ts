@@ -198,6 +198,33 @@ function normBanco(b?: BancoState): BancoState {
   }
 }
 
+// Detecta transações 'manual' que duplicam um pagamento/recebimento de conta
+// (resíduo da migração antiga do fluxoCaixa, que rodava em dobro com a transação real).
+// Retorna os ids das duplicatas 'manual' a remover. Cada conta_pagar/receber consome
+// no máx. uma duplicata correspondente (mesma conta, tipo, valor e descrição).
+function acharDuplicatasMigracao(transacoes: Transacao[]): string[] {
+  const remover: string[] = []
+  const usados = new Set<string>()
+  const chave = (t: Transacao) => `${t.contaId}|${t.tipo}|${t.valor}|${t.descricao}`
+  // agrupa as 'manual' por chave (candidatas a duplicata)
+  const manuaisPorChave = new Map<string, Transacao[]>()
+  transacoes.forEach(t => {
+    if (t.origemAuto === 'manual' && !t.transferenciaId) {
+      const k = chave(t)
+      if (!manuaisPorChave.has(k)) manuaisPorChave.set(k, [])
+      manuaisPorChave.get(k)!.push(t)
+    }
+  })
+  transacoes.forEach(t => {
+    if (t.origemAuto !== 'conta_pagar' && t.origemAuto !== 'conta_receber') return
+    const cands = manuaisPorChave.get(chave(t))
+    if (!cands) return
+    const dup = cands.find(c => !usados.has(c.id))
+    if (dup) { usados.add(dup.id); remover.push(dup.id) }
+  })
+  return remover
+}
+
 function setBanco(get: GetFn, set: SetFn, perfil: Perfil | undefined, fn: (b: BancoState) => BancoState) {
   const s = get()
   const p = perfil ?? s.perfilAtivo
@@ -364,6 +391,11 @@ interface AppState {
   /** Migra lançamentos antigos do fluxoCaixa (array órfão) para transações reais.
    *  Retorna nº migrados, 0 se nada, -1 se não há conta empresa para vincular. */
   migrarFluxoParaTransacoes: (empresaId: string) => number
+  /** Conta quantas transações 'manual' duplicam um pagamento/recebimento de conta
+   *  (resíduo da migração antiga). Não altera nada. */
+  contarDuplicatasMigracao: (perfil?: Perfil) => number
+  /** Remove as transações 'manual' que duplicam uma conta_pagar/conta_receber. Retorna nº removidas. */
+  removerDuplicatasMigracao: (perfil?: Perfil) => number
 
   // Contas a Pagar
   adicionarContaPagar: (empresaId: string, c: Omit<Conta, 'id'>) => void
@@ -394,6 +426,11 @@ interface AppState {
   excluirRegistroEntrega: (empresaId: string, id: string) => void
   pagarEntregador: (empresaId: string, pag: Omit<PagamentoEntregador, 'id' | 'status' | 'dataPagamento' | 'transacaoId'>) => void
   setConfigEntregadores: (empresaId: string, cfg: Partial<import('./empresaTypes').ConfigEntregadores>) => void
+
+  // Fornecedores (empresa ativa)
+  getFornecedores: () => string[]
+  adicionarFornecedor: (nome: string) => void
+  excluirFornecedor: (nome: string) => void
 
   // Separação
   separacao: Separacao
@@ -685,6 +722,13 @@ export const useStore = create<AppState>()(
         }))
         return novas.length
       },
+      contarDuplicatasMigracao: (perfil) => acharDuplicatasMigracao(get().getBanco(perfil).transacoes).length,
+      removerDuplicatasMigracao: (perfil) => {
+        const ids = new Set(acharDuplicatasMigracao(get().getBanco(perfil).transacoes))
+        if (ids.size === 0) return 0
+        setBanco(get, set, perfil, b => ({ ...b, transacoes: b.transacoes.filter(t => !ids.has(t.id)) }))
+        return ids.size
+      },
 
       // Contas Pagar
       adicionarContaPagar: (empresaId, c) => set(s => ({ empresas: updEmpresa(s.empresas, empresaId, e => ({ ...e, contasPagar: [...e.contasPagar, { ...c, id: nanoid() }] })) })),
@@ -751,6 +795,30 @@ export const useStore = create<AppState>()(
         ...e,
         configEntregadores: { ...DEFAULT_CONFIG_ENTREGADORES, ...(e.configEntregadores ?? {}), ...cfg },
       })) })),
+
+      // Fornecedores (empresa ativa)
+      getFornecedores: () => get().getEmpresaAtiva()?.fornecedores ?? [],
+      adicionarFornecedor: (nome) => {
+        const n = nome.trim()
+        if (!n) return
+        const s = get()
+        const empId = s.empresaAtivaId ?? s.empresas[0]?.id
+        if (!empId) return
+        set(st => ({ empresas: updEmpresa(st.empresas, empId, e => ({
+          ...e,
+          fornecedores: (e.fornecedores ?? []).some(f => f.toLowerCase() === n.toLowerCase())
+            ? (e.fornecedores ?? [])
+            : [...(e.fornecedores ?? []), n].sort((a, b) => a.localeCompare(b)),
+        })) }))
+      },
+      excluirFornecedor: (nome) => {
+        const s = get()
+        const empId = s.empresaAtivaId ?? s.empresas[0]?.id
+        if (!empId) return
+        set(st => ({ empresas: updEmpresa(st.empresas, empId, e => ({
+          ...e, fornecedores: (e.fornecedores ?? []).filter(f => f !== nome),
+        })) }))
+      },
 
       // Separação
       separacao: DEFAULT_SEPARACAO,
