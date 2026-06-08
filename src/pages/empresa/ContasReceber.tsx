@@ -7,6 +7,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { hoje } from '../../lib/format';
+import { DatePicker } from '../../components/ui/DatePicker';
 
 const fmtBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -345,12 +346,7 @@ export default function ContasReceber() {
             value={form.valor}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, valor: e.target.value })}
           />
-          <Input
-            label="Vencimento"
-            type="date"
-            value={form.vencimento}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, vencimento: e.target.value })}
-          />
+          <DatePicker label="Vencimento" accent="#e8a020" value={form.vencimento} onChange={(d) => setForm({ ...form, vencimento: d })} />
           <div>
             <label style={{ fontSize: 13, color: '#8b949e', display: 'block', marginBottom: 6 }}>Categoria</label>
             <select
@@ -397,7 +393,7 @@ export default function ContasReceber() {
               </select>
               {bancoEmp.contas.length === 0 && <p style={{ fontSize: 12, color: '#ef4444', margin: '6px 0 0' }}>Cadastre uma conta bancária primeiro.</p>}
             </div>
-            <Input label="Data do recebimento" type="date" value={recData} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRecData(e.target.value)} />
+            <DatePicker label="Data do recebimento" accent="#e8a020" value={recData} onChange={setRecData} />
             <Input label="Valor recebido (R$)" type="number" value={recValor} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRecValor(e.target.value)} />
             <p style={{ fontSize: 12, color: '#8b949e', margin: 0 }}>Gera uma transação de entrada na conta e atualiza o saldo.</p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>

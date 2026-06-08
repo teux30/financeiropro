@@ -3,6 +3,7 @@ import { Users, Plus, Calculator, Edit2, Trash2, X, DollarSign } from 'lucide-re
 import { useStore } from '../../store/useStore'
 import type { Funcionario } from '../../store/empresaTypes'
 import { Modal } from '../../components/ui/Modal'
+import { DatePicker } from '../../components/ui/DatePicker'
 import { hoje, fmtData } from '../../lib/format'
 
 const fmtBRL = (v: number) =>
@@ -221,11 +222,7 @@ function FolhaPanel({ funcionario, onClose }: FolhaPanelProps) {
               {TIPOS_PGTO.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-          <div>
-            <label style={{ fontSize: 13, color: '#8b949e', display: 'block', marginBottom: 6 }}>Data</label>
-            <input type="date" value={payData} onChange={e => setPayData(e.target.value)}
-              style={{ width: '100%', background: '#0d1117', border: '1px solid #30363d', color: '#e6edf3', borderRadius: 6, padding: '8px 10px', fontSize: 14 }} />
-          </div>
+          <DatePicker label="Data" accent="#e8a020" value={payData} onChange={setPayData} />
           <div>
             <label style={{ fontSize: 13, color: '#8b949e', display: 'block', marginBottom: 6 }}>Valor (R$)</label>
             <input type="number" value={payValor} onChange={e => setPayValor(e.target.value)}
@@ -519,15 +516,7 @@ export function RHPage() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              <div>
-                <label style={labelStyle}>Data de Admissão</label>
-                <input
-                  type="date"
-                  style={inputStyle}
-                  value={form.admissao}
-                  onChange={e => setForm(f => ({ ...f, admissao: e.target.value }))}
-                />
-              </div>
+              <DatePicker label="Data de Admissão" accent="#e8a020" value={form.admissao} onChange={d => setForm(f => ({ ...f, admissao: d }))} />
               <div>
                 <label style={labelStyle}>Salário Base (R$) *</label>
                 <input

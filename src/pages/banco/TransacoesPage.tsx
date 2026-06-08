@@ -6,6 +6,7 @@ import { CATEGORIAS, categoriasPorPerfil } from '../../store/bancoTypes'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { DatePicker } from '../../components/ui/DatePicker'
 import { CategoriaIcon } from '../../lib/banco-ui'
 import { fmtBRL, fmtData, labelDia, hoje, maskSaldo } from '../../lib/format'
 import { CapturaIA } from './CapturaIA'
@@ -260,7 +261,7 @@ export function TransacoesPage() {
               </select>
             </div>
           </div>
-          <Input label="Data" type="date" value={form.data} onChange={e => setForm(f => ({ ...f, data: e.target.value }))} />
+          <DatePicker label="Data" value={form.data} accent={accent} onChange={d => setForm(f => ({ ...f, data: d }))} />
           {perfilAtivo === 'empresa' && form.tipo === 'saida' && !ehFolha && (
             <div className="flex flex-col gap-1.5">
               <label className="text-sm font-medium text-[#8b949e]">Fornecedor (opcional)</label>

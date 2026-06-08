@@ -12,6 +12,7 @@ import {
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
+import { DatePicker } from '../../components/ui/DatePicker'
 import { fmtBRL, maskSaldo } from '../../lib/format'
 
 type Aba = 'lista' | 'lancar' | 'fechar' | 'mensal' | 'relatorio'
@@ -402,7 +403,7 @@ function LancarEntregas({ emp, semana, semFim, onReg }: {
 
   return (
     <div className="flex flex-col gap-4">
-      <Input label="Data" type="date" value={data} min={semana} max={semFim} onChange={e => setData(e.target.value)} />
+      <DatePicker label="Data" accent="#e8a020" value={data} min={semana} max={semFim} onChange={setData} />
       {ativos.length === 0 ? <p className="text-sm text-[#8b949e] text-center py-8">Cadastre entregadores ativos primeiro.</p> : (
         <div className="flex flex-col gap-2">
           {ativos.map(e => (

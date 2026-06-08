@@ -10,6 +10,7 @@ import { projecaoEntregadores } from '../../store/entregadorSelectors';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { DatePicker } from '../../components/ui/DatePicker';
 
 const fmtBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -388,7 +389,7 @@ export function FluxoCaixaPage() {
       {/* Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)} title={editId ? 'Editar Lançamento' : 'Novo Lançamento'}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Input label="Data" type="date" value={form.data} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, data: e.target.value })} />
+          <DatePicker label="Data" accent="#e8a020" value={form.data} onChange={(d) => setForm({ ...form, data: d })} />
           <div>
             <label style={lblStyle}>Tipo</label>
             <select value={form.tipo} onChange={(e) => { const tipo = e.target.value as 'entrada' | 'saida'; setForm({ ...form, tipo, categoria: categoriasPorPerfil(PERFIL, tipo)[0] }); }} style={inputStyle}>

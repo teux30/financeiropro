@@ -7,6 +7,7 @@ import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { hoje } from '../../lib/format';
+import { DatePicker } from '../../components/ui/DatePicker';
 
 const fmtBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -353,12 +354,7 @@ export default function ContasPagar() {
             value={form.valor}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, valor: e.target.value })}
           />
-          <Input
-            label="Vencimento"
-            type="date"
-            value={form.vencimento}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setForm({ ...form, vencimento: e.target.value })}
-          />
+          <DatePicker label="Vencimento" accent="#e8a020" value={form.vencimento} onChange={(d) => setForm({ ...form, vencimento: d })} />
           <div>
             <label style={{ fontSize: 13, color: '#8b949e', display: 'block', marginBottom: 6 }}>Categoria</label>
             <select
@@ -407,7 +403,7 @@ export default function ContasPagar() {
               </select>
               {bancoEmp.contas.length === 0 && <p style={{ fontSize: 12, color: '#ef4444', margin: '6px 0 0' }}>Cadastre uma conta bancária (Empresa → Minhas Contas) primeiro.</p>}
             </div>
-            <Input label="Data do pagamento" type="date" value={pagData} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPagData(e.target.value)} />
+            <DatePicker label="Data do pagamento" accent="#e8a020" value={pagData} onChange={setPagData} />
             <Input label="Valor pago (R$)" type="number" value={pagValor} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPagValor(e.target.value)} />
             <p style={{ fontSize: 12, color: '#8b949e', margin: 0 }}>Gera uma transação de saída na conta e atualiza o saldo. Sai do "previsto" do fluxo de caixa.</p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
