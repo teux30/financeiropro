@@ -54,7 +54,12 @@ export interface Transacao {
   conferida?: boolean
   comprovante?: string
   observacoes?: string
-  fornecedor?: string      // fornecedor/origem específico (ex: "Atacadão", "Coca-Cola")
+  fornecedor?: string      // nome do fornecedor (snapshot) — ex: "Atacadão"
+  fornecedorId?: string    // vínculo com cadastro de fornecedor
+  pessoaId?: string        // vínculo com funcionário ou entregador (pagamento de pessoal)
+  pessoaTipo?: 'funcionario' | 'entregador'
+  competencia?: string     // mês de competência YYYY-MM (folha)
+  semanaRef?: string       // semana de referência (entregadores) — ISO do início
   origemAuto?: 'conta_pagar' | 'conta_receber' | 'pro_labore' | 'manual'
 }
 

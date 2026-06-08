@@ -6,6 +6,7 @@ import type { ContaStatus } from '../../store/empresaTypes';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { hoje } from '../../lib/format';
 
 const fmtBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -63,7 +64,7 @@ const defaultForm = (): FormState => ({
   fornecedor: '',
   descricao: '',
   valor: '',
-  vencimento: new Date().toISOString().slice(0, 10),
+  vencimento: hoje(),
   categoria: 'fornecedores',
   recorrente: false,
 });
@@ -161,25 +162,37 @@ export default function ContasPagar() {
     setShowModal(false);
   };
 
-  const marcarPago = (c: Conta) => {
-    if (!empresa) return;
-    atualizarContaPagar(empresa.id, c.id, { status: 'pago' as ContaStatus });
-    // Quitar = vira transação real (realizado). Não grava no fluxoCaixa legado
-    // para evitar dupla contagem: o Fluxo de Caixa deriva das transações.
-    const contaPadrao = bancoEmp.contas.find(x => x.contaPadrao) ?? bancoEmp.contas[0];
-    if (contaPadrao) {
-      const catMap: Record<string, import('../../store/bancoTypes').CategoriaFin> = {
-        fornecedores: 'insumos', folha: 'folha', aluguel: 'aluguel',
-        utilidades: 'utilidades', marketing: 'marketing', impostos: 'impostos',
-        manutencao: 'manutencao', outros_saida: 'outros_saida',
-      };
-      registrarTransacao({
-        contaId: contaPadrao.id, tipo: 'saida', valor: c.valor,
-        descricao: c.descricao, categoria: catMap[c.categoria] ?? 'outros_saida',
-        data: new Date().toISOString().slice(0, 10), recorrente: false,
-        origemAuto: 'conta_pagar',
-      }, 'empresa');
-    }
+  // Pagamento exige conta bancária: abre modal de confirmação
+  const [pagando, setPagando] = useState<Conta | null>(null);
+  const [pagConta, setPagConta] = useState('');
+  const [pagData, setPagData] = useState(hoje());
+  const [pagValor, setPagValor] = useState('');
+
+  const abrirPagamento = (c: Conta) => {
+    setPagando(c);
+    setPagConta(bancoEmp.contas.find(x => x.contaPadrao)?.id ?? bancoEmp.contas[0]?.id ?? '');
+    setPagData(hoje());
+    setPagValor(String(c.valor));
+  };
+
+  const confirmarPagamento = () => {
+    if (!empresa || !pagando || !pagConta) return;
+    const valor = parseFloat(pagValor) || pagando.valor;
+    const catMap: Record<string, import('../../store/bancoTypes').CategoriaFin> = {
+      fornecedores: 'insumos', folha: 'folha', aluguel: 'aluguel',
+      utilidades: 'utilidades', marketing: 'marketing', impostos: 'impostos',
+      manutencao: 'manutencao', outros_saida: 'outros_saida',
+    };
+    const tx = registrarTransacao({
+      contaId: pagConta, tipo: 'saida', valor,
+      descricao: pagando.descricao, categoria: catMap[pagando.categoria] ?? 'outros_saida',
+      data: pagData, recorrente: false, origemAuto: 'conta_pagar',
+      fornecedor: pagando.fornecedor, fornecedorId: pagando.fornecedorId,
+    }, 'empresa');
+    atualizarContaPagar(empresa.id, pagando.id, {
+      status: 'pago' as ContaStatus, contaId: pagConta, transacaoId: tx.id, dataPagamento: pagData,
+    });
+    setPagando(null);
   };
 
   const handleDelete = (id: string) => {
@@ -294,7 +307,7 @@ export default function ContasPagar() {
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         {c.status !== 'pago' && (
                           <button
-                            onClick={() => marcarPago(c)}
+                            onClick={() => abrirPagamento(c)}
                             title="Marcar como pago"
                             style={{ background: 'rgba(16,185,129,0.15)', border: 'none', cursor: 'pointer', color: '#10b981', padding: '4px 8px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600 }}
                           >
@@ -376,6 +389,33 @@ export default function ContasPagar() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Modal de pagamento — conta obrigatória */}
+      <Modal open={!!pagando} onClose={() => setPagando(null)} title="Registrar pagamento">
+        {pagando && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ fontSize: 13, color: '#8b949e', margin: 0 }}>
+              {pagando.descricao}{pagando.fornecedor ? ` · ${pagando.fornecedor}` : ''}
+            </p>
+            <div>
+              <label style={{ fontSize: 13, color: '#8b949e', display: 'block', marginBottom: 6 }}>Conta de onde saiu o dinheiro *</label>
+              <select value={pagConta} onChange={(e) => setPagConta(e.target.value)}
+                style={{ width: '100%', background: '#0d1117', border: `1px solid ${pagConta ? '#21262d' : '#ef4444'}`, color: '#e6edf3', borderRadius: 6, padding: '8px 10px', fontSize: 14 }}>
+                <option value="">Selecione a conta…</option>
+                {bancoEmp.contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+              {bancoEmp.contas.length === 0 && <p style={{ fontSize: 12, color: '#ef4444', margin: '6px 0 0' }}>Cadastre uma conta bancária (Empresa → Minhas Contas) primeiro.</p>}
+            </div>
+            <Input label="Data do pagamento" type="date" value={pagData} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPagData(e.target.value)} />
+            <Input label="Valor pago (R$)" type="number" value={pagValor} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPagValor(e.target.value)} />
+            <p style={{ fontSize: 12, color: '#8b949e', margin: 0 }}>Gera uma transação de saída na conta e atualiza o saldo. Sai do "previsto" do fluxo de caixa.</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+              <Button onClick={() => setPagando(null)} style={{ background: '#21262d', color: '#e6edf3', border: 'none', padding: '8px 16px', borderRadius: 6, cursor: 'pointer' }}>Cancelar</Button>
+              <Button onClick={confirmarPagamento} disabled={!pagConta} style={{ background: '#10b981', color: '#0d1117', fontWeight: 700, border: 'none', padding: '8px 16px', borderRadius: 6, cursor: pagConta ? 'pointer' : 'not-allowed', opacity: pagConta ? 1 : 0.5 }}>Confirmar pagamento</Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

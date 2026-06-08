@@ -6,6 +6,7 @@ import type { ContaStatus } from '../../store/empresaTypes';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
+import { hoje } from '../../lib/format';
 
 const fmtBRL = (v: number) =>
   v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
@@ -58,7 +59,7 @@ const defaultForm = (): FormState => ({
   cliente: '',
   descricao: '',
   valor: '',
-  vencimento: new Date().toISOString().slice(0, 10),
+  vencimento: hoje(),
   categoria: 'vendas_balcao',
   recorrente: false,
 });
@@ -156,23 +157,34 @@ export default function ContasReceber() {
     setShowModal(false);
   };
 
-  const marcarRecebido = (c: Conta) => {
-    if (!empresa) return;
-    atualizarContaReceber(empresa.id, c.id, { status: 'recebido' as ContaStatus });
-    // Quitar = vira transação real (realizado). Não grava no fluxoCaixa legado
-    // para evitar dupla contagem: o Fluxo de Caixa deriva das transações.
-    const contaPadrao = bancoEmp.contas.find(x => x.contaPadrao) ?? bancoEmp.contas[0];
-    if (contaPadrao) {
-      const catMap: Record<string, import('../../store/bancoTypes').CategoriaFin> = {
-        vendas_balcao: 'vendas_balcao', delivery: 'delivery', eventos: 'eventos', outros_entrada: 'outros_entrada',
-      };
-      registrarTransacao({
-        contaId: contaPadrao.id, tipo: 'entrada', valor: c.valor,
-        descricao: c.descricao, categoria: catMap[c.categoria] ?? 'outros_entrada',
-        data: new Date().toISOString().slice(0, 10), recorrente: false,
-        origemAuto: 'conta_receber',
-      }, 'empresa');
-    }
+  // Recebimento exige conta bancária: abre modal de confirmação
+  const [recebendo, setRecebendo] = useState<Conta | null>(null);
+  const [recConta, setRecConta] = useState('');
+  const [recData, setRecData] = useState(hoje());
+  const [recValor, setRecValor] = useState('');
+
+  const abrirRecebimento = (c: Conta) => {
+    setRecebendo(c);
+    setRecConta(bancoEmp.contas.find(x => x.contaPadrao)?.id ?? bancoEmp.contas[0]?.id ?? '');
+    setRecData(hoje());
+    setRecValor(String(c.valor));
+  };
+
+  const confirmarRecebimento = () => {
+    if (!empresa || !recebendo || !recConta) return;
+    const valor = parseFloat(recValor) || recebendo.valor;
+    const catMap: Record<string, import('../../store/bancoTypes').CategoriaFin> = {
+      vendas_balcao: 'vendas_balcao', delivery: 'delivery', eventos: 'eventos', outros_entrada: 'outros_entrada',
+    };
+    const tx = registrarTransacao({
+      contaId: recConta, tipo: 'entrada', valor,
+      descricao: recebendo.descricao, categoria: catMap[recebendo.categoria] ?? 'outros_entrada',
+      data: recData, recorrente: false, origemAuto: 'conta_receber',
+    }, 'empresa');
+    atualizarContaReceber(empresa.id, recebendo.id, {
+      status: 'recebido' as ContaStatus, contaId: recConta, transacaoId: tx.id, dataPagamento: recData,
+    });
+    setRecebendo(null);
   };
 
   const handleDelete = (id: string) => {
@@ -287,7 +299,7 @@ export default function ContasReceber() {
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         {c.status !== 'recebido' && (
                           <button
-                            onClick={() => marcarRecebido(c)}
+                            onClick={() => abrirRecebimento(c)}
                             title="Marcar como recebido"
                             style={{ background: 'rgba(16,185,129,0.15)', border: 'none', cursor: 'pointer', color: '#10b981', padding: '4px 8px', borderRadius: 4, display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600 }}
                           >
@@ -369,6 +381,31 @@ export default function ContasReceber() {
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Modal de recebimento — conta obrigatória */}
+      <Modal open={!!recebendo} onClose={() => setRecebendo(null)} title="Registrar recebimento">
+        {recebendo && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <p style={{ fontSize: 13, color: '#8b949e', margin: 0 }}>{recebendo.descricao}</p>
+            <div>
+              <label style={{ fontSize: 13, color: '#8b949e', display: 'block', marginBottom: 6 }}>Conta onde o dinheiro entrou *</label>
+              <select value={recConta} onChange={(e) => setRecConta(e.target.value)}
+                style={{ width: '100%', background: '#0d1117', border: `1px solid ${recConta ? '#21262d' : '#ef4444'}`, color: '#e6edf3', borderRadius: 6, padding: '8px 10px', fontSize: 14 }}>
+                <option value="">Selecione a conta…</option>
+                {bancoEmp.contas.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+              </select>
+              {bancoEmp.contas.length === 0 && <p style={{ fontSize: 12, color: '#ef4444', margin: '6px 0 0' }}>Cadastre uma conta bancária primeiro.</p>}
+            </div>
+            <Input label="Data do recebimento" type="date" value={recData} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRecData(e.target.value)} />
+            <Input label="Valor recebido (R$)" type="number" value={recValor} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRecValor(e.target.value)} />
+            <p style={{ fontSize: 12, color: '#8b949e', margin: 0 }}>Gera uma transação de entrada na conta e atualiza o saldo.</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+              <Button onClick={() => setRecebendo(null)} style={{ background: '#21262d', color: '#e6edf3', border: 'none', padding: '8px 16px', borderRadius: 6, cursor: 'pointer' }}>Cancelar</Button>
+              <Button onClick={confirmarRecebimento} disabled={!recConta} style={{ background: '#10b981', color: '#0d1117', fontWeight: 700, border: 'none', padding: '8px 16px', borderRadius: 6, cursor: recConta ? 'pointer' : 'not-allowed', opacity: recConta ? 1 : 0.5 }}>Confirmar recebimento</Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   );

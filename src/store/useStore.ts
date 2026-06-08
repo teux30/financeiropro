@@ -434,9 +434,13 @@ interface AppState {
   setConfigEntregadores: (empresaId: string, cfg: Partial<import('./empresaTypes').ConfigEntregadores>) => void
 
   // Fornecedores (empresa ativa)
-  getFornecedores: () => string[]
-  adicionarFornecedor: (nome: string) => void
-  excluirFornecedor: (nome: string) => void
+  getFornecedores: () => import('./empresaTypes').Fornecedor[]
+  adicionarFornecedor: (f: Omit<import('./empresaTypes').Fornecedor, 'id' | 'criadoEm'>) => import('./empresaTypes').Fornecedor
+  atualizarFornecedor: (id: string, data: Partial<import('./empresaTypes').Fornecedor>) => void
+  excluirFornecedor: (id: string) => void
+  getGastosPorFornecedor: (de: string, ate: string) => { fornecedorId: string; nome: string; total: number; qtd: number }[]
+  getHistoricoFornecedor: (fornecedorId: string) => Transacao[]
+  getPagamentosPessoa: (pessoaId: string, de: string, ate: string) => Transacao[]
 
   // Separação
   separacao: Separacao
@@ -781,14 +785,14 @@ export const useStore = create<AppState>()(
           const tx = s.registrarTransacao({
             contaId: pag.contaId, tipo: 'saida', valor: pag.totalPago,
             descricao: `Pagamento entregador${ent ? `: ${ent.nome}` : ''}`,
-            categoria: 'folha', data: new Date().toISOString().slice(0, 10),
+            categoria: 'folha', data: hojeLocal(),
             recorrente: false, origemAuto: 'manual',
           }, 'empresa')
           transacaoId = tx.id
         }
         const pagamento: PagamentoEntregador = {
           ...pag, id: nanoid(), status: 'pago',
-          dataPagamento: new Date().toISOString().slice(0, 10), transacaoId,
+          dataPagamento: hojeLocal(), transacaoId,
         }
         set(prev => ({ empresas: updEmpresa(prev.empresas, empresaId, e => ({
           ...e,
@@ -806,27 +810,55 @@ export const useStore = create<AppState>()(
 
       // Fornecedores (empresa ativa)
       getFornecedores: () => get().getEmpresaAtiva()?.fornecedores ?? [],
-      adicionarFornecedor: (nome) => {
-        const n = nome.trim()
-        if (!n) return
+      adicionarFornecedor: (f) => {
+        const novo = { ...f, id: nanoid(), criadoEm: hojeLocal() }
+        const s = get()
+        const empId = s.empresaAtivaId ?? s.empresas[0]?.id
+        if (empId) set(st => ({ empresas: updEmpresa(st.empresas, empId, e => ({
+          ...e, fornecedores: [...(e.fornecedores ?? []), novo],
+        })) }))
+        return novo
+      },
+      atualizarFornecedor: (id, data) => {
         const s = get()
         const empId = s.empresaAtivaId ?? s.empresas[0]?.id
         if (!empId) return
         set(st => ({ empresas: updEmpresa(st.empresas, empId, e => ({
-          ...e,
-          fornecedores: (e.fornecedores ?? []).some(f => f.toLowerCase() === n.toLowerCase())
-            ? (e.fornecedores ?? [])
-            : [...(e.fornecedores ?? []), n].sort((a, b) => a.localeCompare(b)),
+          ...e, fornecedores: (e.fornecedores ?? []).map(f => f.id === id ? { ...f, ...data } : f),
         })) }))
       },
-      excluirFornecedor: (nome) => {
+      excluirFornecedor: (id) => {
         const s = get()
         const empId = s.empresaAtivaId ?? s.empresas[0]?.id
         if (!empId) return
         set(st => ({ empresas: updEmpresa(st.empresas, empId, e => ({
-          ...e, fornecedores: (e.fornecedores ?? []).filter(f => f !== nome),
+          ...e, fornecedores: (e.fornecedores ?? []).filter(f => f.id !== id),
         })) }))
       },
+      getGastosPorFornecedor: (de, ate) => {
+        const s = get()
+        const forns = s.getEmpresaAtiva()?.fornecedores ?? []
+        const nome = (id: string) => forns.find(f => f.id === id)?.nome ?? 'Sem fornecedor'
+        const map = new Map<string, { total: number; qtd: number }>()
+        s.getBanco('empresa').transacoes
+          .filter(t => t.tipo === 'saida' && t.fornecedorId && t.categoria !== 'transferencia')
+          .filter(t => t.data.slice(0, 10) >= de && t.data.slice(0, 10) <= ate)
+          .forEach(t => {
+            const cur = map.get(t.fornecedorId!) ?? { total: 0, qtd: 0 }
+            cur.total += t.valor; cur.qtd++; map.set(t.fornecedorId!, cur)
+          })
+        return [...map.entries()]
+          .map(([fornecedorId, v]) => ({ fornecedorId, nome: nome(fornecedorId), ...v }))
+          .sort((a, b) => b.total - a.total)
+      },
+      getHistoricoFornecedor: (fornecedorId) =>
+        get().getBanco('empresa').transacoes
+          .filter(t => t.fornecedorId === fornecedorId)
+          .sort((a, b) => b.data.localeCompare(a.data)),
+      getPagamentosPessoa: (pessoaId, de, ate) =>
+        get().getBanco('empresa').transacoes
+          .filter(t => t.pessoaId === pessoaId && t.data.slice(0, 10) >= de && t.data.slice(0, 10) <= ate)
+          .sort((a, b) => b.data.localeCompare(a.data)),
 
       // Separação
       separacao: DEFAULT_SEPARACAO,
@@ -944,7 +976,7 @@ export const useStore = create<AppState>()(
         const cx: Caixinha = { ...c, id, criadoEm: new Date().toISOString() }
         setBanco(get, set, perfil, b => ({ ...b, caixinhas: [...b.caixinhas, cx] }))
         if (depositoInicial && depositoInicial > 0) {
-          get().depositarCaixinha(id, depositoInicial, new Date().toISOString().slice(0, 10), 'Depósito inicial', perfil)
+          get().depositarCaixinha(id, depositoInicial, hojeLocal(), 'Depósito inicial', perfil)
         }
       },
       editarCaixinha: (id, data, perfil) => setBanco(get, set, perfil, b => ({
@@ -1045,7 +1077,7 @@ export const useStore = create<AppState>()(
         ...b, recorrentes: b.recorrentes.filter(r => r.id !== id),
       })),
       processarRecorrentes: () => {
-        const hoje = new Date().toISOString().slice(0, 10)
+        const hoje = hojeLocal()
         const perfis: Perfil[] = ['pessoal', 'empresa']
         perfis.forEach(perfil => {
           setBanco(get, set, perfil, b => {

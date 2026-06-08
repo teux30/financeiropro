@@ -51,6 +51,25 @@ export interface Conta {
   categoria: FluxoCategoria
   fornecedor?: string
   recorrente?: boolean
+  // preenchidos ao quitar (a transação é a fonte da verdade)
+  contaId?: string         // conta bancária de onde saiu/entrou o dinheiro
+  transacaoId?: string     // transação gerada na quitação
+  fornecedorId?: string    // fornecedor vinculado
+  dataPagamento?: string   // data real do pagamento/recebimento
+}
+
+// ── Fornecedor ────────────────────────────────────────────────────────────────
+export interface Fornecedor {
+  id: string
+  nome: string
+  categoria?: string       // carnes, bebidas, hortifruti, embalagens, gás, limpeza, serviços...
+  contato?: string         // telefone/WhatsApp
+  email?: string
+  cnpj?: string
+  pix?: string
+  observacoes?: string
+  status: 'ativo' | 'inativo'
+  criadoEm: string
 }
 
 // ── Funcionários ────────────────────────────────────────────────────────────
@@ -170,7 +189,7 @@ export interface Empresa {
   registrosEntrega?: RegistroEntrega[]
   pagamentosEntregador?: PagamentoEntregador[]
   configEntregadores?: ConfigEntregadores
-  fornecedores?: string[]   // cadastro de fornecedores para vincular às saídas/contas
+  fornecedores?: Fornecedor[]   // cadastro de fornecedores para vincular às saídas/contas
   notas?: import('./notasTypes').Nota[]
 }
 
