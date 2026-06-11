@@ -103,6 +103,25 @@ export interface MovimentoEstoque {
   observacao?: string
 }
 
+// ── Cardápio (pratos/produtos vendidos) ───────────────────────────────────────
+export interface ComposicaoItem {
+  insumoId: string
+  quantidade: number   // na unidade do insumo
+}
+
+export interface ItemCardapio {
+  id: string
+  nome: string
+  categoria?: string
+  precoVenda: number
+  composicao: ComposicaoItem[]   // insumos que compõem o prato
+  custoManual?: number           // override opcional do custo (quando não há composição)
+  descricao?: string
+  imagem?: string
+  ativo: boolean
+  criadoEm: string
+}
+
 // ── Entregadores (delivery) ───────────────────────────────────────────────────
 export interface Entregador {
   id: string
@@ -190,8 +209,12 @@ export interface Empresa {
   pagamentosEntregador?: PagamentoEntregador[]
   configEntregadores?: ConfigEntregadores
   fornecedores?: Fornecedor[]   // cadastro de fornecedores para vincular às saídas/contas
+  cardapio?: ItemCardapio[]     // pratos/produtos vendidos (custo derivado dos insumos)
   notas?: import('./notasTypes').Nota[]
 }
+
+/** Margem de segurança adicionada ao custo calculado de um item do cardápio (10%). */
+export const MARGEM_SEGURANCA_CARDAPIO = 0.10
 
 // ── Helpers de semana (início configurável; padrão segunda-feira) ─────────────
 /** Início da semana que contém `iso`. startDay: 0=domingo..6=sábado (padrão 1=segunda) */

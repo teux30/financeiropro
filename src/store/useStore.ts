@@ -11,7 +11,7 @@ import type {
   Insumo, MovimentoEstoque, DREPeriodo,
   Entregador, RegistroEntrega, PagamentoEntregador,
 } from './empresaTypes'
-import { DEFAULT_CONFIG_ENTREGADORES } from './empresaTypes'
+import { DEFAULT_CONFIG_ENTREGADORES, MARGEM_SEGURANCA_CARDAPIO } from './empresaTypes'
 import type {
   BancoState, ControleFinanceiro, ContaBancaria, Transacao,
   Transferencia, Recorrente, CategoriaFin, OrcamentoItem,
@@ -53,7 +53,7 @@ export type AppView =
   | 'dashboard' | 'projects' | 'editor' | 'kanban' | 'diary' | 'simulador'
   | 'empresa_dashboard' | 'empresa_dre' | 'empresa_fluxo'
   | 'empresa_pagar' | 'empresa_receber' | 'empresa_indicadores'
-  | 'empresa_rh' | 'empresa_estoque' | 'empresa_entregadores' | 'empresa_fornecedores'
+  | 'empresa_rh' | 'empresa_estoque' | 'empresa_entregadores' | 'empresa_fornecedores' | 'empresa_cardapio'
   | 'separacao' | 'notas'
   // Banking + financial control (work in both profiles)
   | 'contas' | 'conta_detalhe' | 'transacoes' | 'transferencias'
@@ -91,6 +91,7 @@ export const VIEW_PROFILE: Record<AppView, 'pessoal' | 'empresa' | 'ambos'> = {
   empresa_estoque: 'empresa',
   empresa_entregadores: 'empresa',
   empresa_fornecedores: 'empresa',
+  empresa_cardapio: 'empresa',
 }
 
 export function viewPermitida(view: AppView, perfil: Perfil): boolean {
@@ -442,6 +443,14 @@ interface AppState {
   getGastosPorFornecedor: (de: string, ate: string) => { fornecedorId: string; nome: string; total: number; qtd: number }[]
   getHistoricoFornecedor: (fornecedorId: string) => Transacao[]
   getPagamentosPessoa: (pessoaId: string, de: string, ate: string) => Transacao[]
+
+  // Cardápio (empresa ativa)
+  getCardapio: () => import('./empresaTypes').ItemCardapio[]
+  adicionarItemCardapio: (i: Omit<import('./empresaTypes').ItemCardapio, 'id' | 'criadoEm'>) => void
+  atualizarItemCardapio: (id: string, data: Partial<import('./empresaTypes').ItemCardapio>) => void
+  excluirItemCardapio: (id: string) => void
+  /** Custo calculado do item (soma insumos × qtd) + margem de segurança 10%. */
+  getCustoItemCardapio: (item: import('./empresaTypes').ItemCardapio) => number
 
   // Separação
   separacao: Separacao
@@ -861,6 +870,31 @@ export const useStore = create<AppState>()(
         get().getBanco('empresa').transacoes
           .filter(t => t.pessoaId === pessoaId && t.data.slice(0, 10) >= de && t.data.slice(0, 10) <= ate)
           .sort((a, b) => b.data.localeCompare(a.data)),
+
+      // Cardápio (empresa ativa)
+      getCardapio: () => get().getEmpresaAtiva()?.cardapio ?? [],
+      adicionarItemCardapio: (i) => {
+        const item = { ...i, id: nanoid(), criadoEm: hojeLocal() }
+        const s = get(); const empId = s.empresaAtivaId ?? s.empresas[0]?.id
+        if (empId) set(st => ({ empresas: updEmpresa(st.empresas, empId, e => ({ ...e, cardapio: [...(e.cardapio ?? []), item] })) }))
+      },
+      atualizarItemCardapio: (id, data) => {
+        const s = get(); const empId = s.empresaAtivaId ?? s.empresas[0]?.id
+        if (empId) set(st => ({ empresas: updEmpresa(st.empresas, empId, e => ({ ...e, cardapio: (e.cardapio ?? []).map(x => x.id === id ? { ...x, ...data } : x) })) }))
+      },
+      excluirItemCardapio: (id) => {
+        const s = get(); const empId = s.empresaAtivaId ?? s.empresas[0]?.id
+        if (empId) set(st => ({ empresas: updEmpresa(st.empresas, empId, e => ({ ...e, cardapio: (e.cardapio ?? []).filter(x => x.id !== id) })) }))
+      },
+      getCustoItemCardapio: (item) => {
+        if (item.composicao.length === 0) return item.custoManual ?? 0
+        const insumos = get().getEmpresaAtiva()?.insumos ?? []
+        const base = item.composicao.reduce((s, c) => {
+          const ins = insumos.find(i => i.id === c.insumoId)
+          return s + (ins ? ins.custoUnitario * c.quantidade : 0)
+        }, 0)
+        return base * (1 + MARGEM_SEGURANCA_CARDAPIO)
+      },
 
       // Separação
       separacao: DEFAULT_SEPARACAO,

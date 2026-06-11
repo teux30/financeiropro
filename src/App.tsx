@@ -29,6 +29,7 @@ const RHPage          = lazy(() => import('./pages/empresa/RH').then(m => ({ def
 const EstoquePage     = lazy(() => import('./pages/empresa/Estoque').then(m => ({ default: m.EstoquePage })))
 const EntregadoresPage = lazy(() => import('./pages/empresa/Entregadores').then(m => ({ default: m.EntregadoresPage })))
 const FornecedoresPage = lazy(() => import('./pages/empresa/Fornecedores').then(m => ({ default: m.FornecedoresPage })))
+const CardapioPage = lazy(() => import('./pages/empresa/Cardapio').then(m => ({ default: m.CardapioPage })))
 const NotasPage = lazy(() => import('./pages/NotasPage').then(m => ({ default: m.NotasPage })))
 const SeparacaoPage   = lazy(() => import('./pages/Separacao').then(m => ({ default: m.SeparacaoPage })))
 const ContasPage      = lazy(() => import('./pages/banco/ContasPage').then(m => ({ default: m.ContasPage })))
@@ -86,6 +87,7 @@ function AppShell() {
       case 'empresa_estoque':      return <EstoquePage />
       case 'empresa_entregadores': return <EntregadoresPage />
       case 'empresa_fornecedores': return <FornecedoresPage />
+      case 'empresa_cardapio': return <CardapioPage />
       // Banking (both profiles)
       case 'contas':          return <ContasPage />
       case 'conta_detalhe':   return <ContaDetalhe />
