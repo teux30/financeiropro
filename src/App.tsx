@@ -20,7 +20,7 @@ const KanbanBoard     = lazy(() => import('./pages/KanbanBoard').then(m => ({ de
 const IdeaDiary       = lazy(() => import('./pages/IdeaDiary').then(m => ({ default: m.IdeaDiary })))
 const SimuladorPage   = lazy(() => import('./pages/Simulador').then(m => ({ default: m.SimuladorPage })))
 const DashboardEmpresa = lazy(() => import('./pages/empresa/DashboardEmpresa'))
-const DREPage         = lazy(() => import('./pages/empresa/DRE'))
+const DREPage         = lazy(() => import('./pages/empresa/DREAuto'))
 const FluxoCaixaPage  = lazy(() => import('./pages/empresa/FluxoCaixa').then(m => ({ default: m.FluxoCaixaPage })))
 const ContasPagarPage = lazy(() => import('./pages/empresa/ContasPagar'))
 const ContasReceberPage = lazy(() => import('./pages/empresa/ContasReceber'))
