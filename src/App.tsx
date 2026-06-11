@@ -9,6 +9,7 @@ import { BottomNav } from './components/layout/BottomNav'
 import { InstallPrompt } from './components/InstallPrompt'
 import { AuthGate } from './components/AuthGate'
 import { UpdateBanner } from './components/UpdateBanner'
+import { ChatbotIA } from './components/ChatbotIA'
 
 // Páginas leves — carregadas direto
 import { Dashboard } from './pages/Dashboard'
@@ -186,6 +187,7 @@ function AppShell() {
       />
 
       <SettingsModal open={showSettings} onClose={() => setShowSettings(false)} />
+      <ChatbotIA />
       <InstallPrompt />
       <UpdateBanner />
     </div>
