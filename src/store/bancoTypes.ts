@@ -60,8 +60,16 @@ export interface Transacao {
   pessoaTipo?: 'funcionario' | 'entregador'
   competencia?: string     // mês de competência YYYY-MM (folha)
   semanaRef?: string       // semana de referência (entregadores) — ISO do início
+  // Vendas (entradas — restaurante)
+  plataforma?: string      // iFood, 99Food, Rappi, Balcão, Delivery próprio, Outro
+  formaPagamento?: string  // PIX, Dinheiro, Débito, Crédito
+  itemCardapioId?: string  // venda vinculada a um item do cardápio (CMV por item)
+  quantidade?: number      // qtd vendida (para CMV)
   origemAuto?: 'conta_pagar' | 'conta_receber' | 'pro_labore' | 'manual'
 }
+
+export const PLATAFORMAS_VENDA = ['Balcão', 'Delivery próprio', 'iFood', '99Food', 'Rappi', 'Outro']
+export const FORMAS_PAGAMENTO = ['PIX', 'Dinheiro', 'Débito', 'Crédito']
 
 // ── Transferência ───────────────────────────────────────────────────────────
 export interface Transferencia {

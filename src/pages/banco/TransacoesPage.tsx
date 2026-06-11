@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Plus, Search, ArrowDownLeft, ArrowUpRight, Check, Trash2, Pencil, Sparkles } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { Transacao, TransacaoTipo, CategoriaFin } from '../../store/bancoTypes'
-import { CATEGORIAS, categoriasPorPerfil } from '../../store/bancoTypes'
+import { CATEGORIAS, categoriasPorPerfil, PLATAFORMAS_VENDA, FORMAS_PAGAMENTO } from '../../store/bancoTypes'
 import { Modal } from '../../components/ui/Modal'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
@@ -16,14 +16,16 @@ interface FormState {
   contaId: string; tipo: TransacaoTipo; valor: string; descricao: string
   categoria: CategoriaFin; data: string; observacoes: string; fornecedorNome: string
   pessoaKey: string  // "funcionario:<id>" | "entregador:<id>"
+  plataforma: string; formaPagamento: string; itemCardapioId: string; quantidade: string
 }
 
 export function TransacoesPage() {
   const {
     perfilAtivo, getBanco, registrarTransacao, editarTransacao, excluirTransacao,
-    toggleConferida, ocultarSaldos, getFornecedores, adicionarFornecedor, getEmpresaAtiva,
+    toggleConferida, ocultarSaldos, getFornecedores, adicionarFornecedor, getEmpresaAtiva, getCardapio,
   } = useStore()
   const fornecedores = perfilAtivo === 'empresa' ? getFornecedores() : []
+  const cardapio = perfilAtivo === 'empresa' ? getCardapio() : []
   const empAtiva = perfilAtivo === 'empresa' ? getEmpresaAtiva() : null
   const pessoas = useMemo(() => {
     if (!empAtiva) return [] as { key: string; nome: string; sub: string }[]
@@ -42,6 +44,7 @@ export function TransacoesPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState<FormState>({
     contaId: '', tipo: 'saida', valor: '', descricao: '', categoria: catsSaida[0], data: hoje(), observacoes: '', fornecedorNome: '', pessoaKey: '',
+    plataforma: '', formaPagamento: '', itemCardapioId: '', quantidade: '',
   })
 
   // filtros
@@ -85,12 +88,12 @@ export function TransacoesPage() {
   const openNew = () => {
     if (banco.contas.length === 0) return
     const padrao = banco.contas.find(c => c.contaPadrao) ?? banco.contas[0]
-    setForm({ contaId: padrao.id, tipo: 'saida', valor: '', descricao: '', categoria: catsSaida[0], data: hoje(), observacoes: '', fornecedorNome: '', pessoaKey: '' })
+    setForm({ contaId: padrao.id, tipo: 'saida', valor: '', descricao: '', categoria: catsSaida[0], data: hoje(), observacoes: '', fornecedorNome: '', pessoaKey: '', plataforma: '', formaPagamento: '', itemCardapioId: '', quantidade: '' })
     setEditId(null); setShowModal(true)
   }
   const openEdit = (t: Transacao) => {
     const fNome = t.fornecedorId ? (fornecedores.find(f => f.id === t.fornecedorId)?.nome ?? t.fornecedor ?? '') : (t.fornecedor ?? '')
-    setForm({ contaId: t.contaId, tipo: t.tipo, valor: String(t.valor), descricao: t.descricao, categoria: t.categoria, data: t.data.slice(0, 10), observacoes: t.observacoes ?? '', fornecedorNome: fNome, pessoaKey: t.pessoaId && t.pessoaTipo ? `${t.pessoaTipo}:${t.pessoaId}` : '' })
+    setForm({ contaId: t.contaId, tipo: t.tipo, valor: String(t.valor), descricao: t.descricao, categoria: t.categoria, data: t.data.slice(0, 10), observacoes: t.observacoes ?? '', fornecedorNome: fNome, pessoaKey: t.pessoaId && t.pessoaTipo ? `${t.pessoaTipo}:${t.pessoaId}` : '', plataforma: t.plataforma ?? '', formaPagamento: t.formaPagamento ?? '', itemCardapioId: t.itemCardapioId ?? '', quantidade: t.quantidade ? String(t.quantidade) : '' })
     setEditId(t.id); setShowModal(true)
   }
   const ehFolha = perfilAtivo === 'empresa' && form.tipo === 'saida' && form.categoria === 'folha'
@@ -114,12 +117,17 @@ export function TransacoesPage() {
       const [tipo, id] = form.pessoaKey.split(':')
       pessoaTipo = tipo as 'funcionario' | 'entregador'; pessoaId = id
     }
+    const ehVenda = perfilAtivo === 'empresa' && form.tipo === 'entrada'
     const payload = {
       contaId: form.contaId, tipo: form.tipo, valor: parseFloat(form.valor) || 0,
       descricao: form.descricao.trim() || CATEGORIAS[form.categoria].label,
       categoria: form.categoria, data: form.data, recorrente: false,
       observacoes: form.observacoes.trim() || undefined, fornecedorId, fornecedor,
       pessoaId, pessoaTipo, competencia: ehFolha ? form.data.slice(0, 7) : undefined,
+      plataforma: ehVenda ? (form.plataforma || undefined) : undefined,
+      formaPagamento: ehVenda ? (form.formaPagamento || undefined) : undefined,
+      itemCardapioId: ehVenda ? (form.itemCardapioId || undefined) : undefined,
+      quantidade: ehVenda && form.itemCardapioId ? (parseFloat(form.quantidade) || 1) : undefined,
       origemAuto: 'manual' as const,
     }
     if (editId) editarTransacao(editId, payload)
@@ -279,6 +287,38 @@ export function TransacoesPage() {
                 {fornecedores.map(f => <option key={f.id} value={f.nome} />)}
               </datalist>
               <p className="text-[11px] text-[#484f58]">Se digitar um nome novo, ele é cadastrado automaticamente.</p>
+            </div>
+          )}
+          {perfilAtivo === 'empresa' && form.tipo === 'entrada' && (
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-[#8b949e]">Plataforma</label>
+                  <select value={form.plataforma} onChange={e => setForm(f => ({ ...f, plataforma: e.target.value }))} className="bg-[#0a0f0a] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none">
+                    <option value="">—</option>
+                    {PLATAFORMAS_VENDA.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-[#8b949e]">Forma de pagamento</label>
+                  <select value={form.formaPagamento} onChange={e => setForm(f => ({ ...f, formaPagamento: e.target.value }))} className="bg-[#0a0f0a] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none">
+                    <option value="">—</option>
+                    {FORMAS_PAGAMENTO.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+              </div>
+              {cardapio.length > 0 && (
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="col-span-2 flex flex-col gap-1.5">
+                    <label className="text-sm font-medium text-[#8b949e]">Item do cardápio (p/ CMV)</label>
+                    <select value={form.itemCardapioId} onChange={e => setForm(f => ({ ...f, itemCardapioId: e.target.value }))} className="bg-[#0a0f0a] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-[#e6edf3] focus:outline-none">
+                      <option value="">Nenhum</option>
+                      {cardapio.map(i => <option key={i.id} value={i.id}>{i.nome}</option>)}
+                    </select>
+                  </div>
+                  {form.itemCardapioId && <Input label="Qtd" type="number" inputMode="numeric" value={form.quantidade} onChange={e => setForm(f => ({ ...f, quantidade: e.target.value }))} placeholder="1" />}
+                </div>
+              )}
             </div>
           )}
           {ehFolha && (

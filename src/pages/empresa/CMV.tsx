@@ -39,6 +39,23 @@ export function CMVPage() {
   }).sort((a, b) => b.cmv - a.cmv)
   const cmvMedioCardapio = porItem.length ? porItem.reduce((s, i) => s + i.cmv, 0) / porItem.length : 0
 
+  // Vendas por item (realizado) — transações de entrada com itemCardapioId no mês
+  const vendasPorItem = useMemo(() => {
+    const cardapio = getCardapio()
+    const map = new Map<string, { nome: string; receita: number; qtd: number; custo: number }>()
+    banco.transacoes
+      .filter(t => t.tipo === 'entrada' && t.itemCardapioId && t.data.startsWith(prefix))
+      .forEach(t => {
+        const item = cardapio.find(i => i.id === t.itemCardapioId)
+        if (!item) return
+        const cur = map.get(item.id) ?? { nome: item.nome, receita: 0, qtd: 0, custo: 0 }
+        const q = t.quantidade ?? 1
+        cur.receita += t.valor; cur.qtd += q; cur.custo += getCustoItemCardapio(item) * q
+        map.set(item.id, cur)
+      })
+    return [...map.values()].map(v => ({ ...v, cmv: v.receita > 0 ? (v.custo / v.receita) * 100 : 0 })).sort((a, b) => b.cmv - a.cmv)
+  }, [banco.transacoes, prefix, getCardapio, getCustoItemCardapio])
+
   const mudarMes = (d: number) => { let m = mes + d, a = ano; if (m < 1) { m = 12; a-- } else if (m > 12) { m = 1; a++ } setMes(m); setAno(a) }
 
   if (!emp) return <div className="flex-1 flex items-center justify-center text-[#8b949e]">Nenhuma empresa ativa.</div>
@@ -91,6 +108,22 @@ export function CMVPage() {
         <p className="text-[11px] text-[#484f58] -mt-2">
           CMV realizado = saídas de categoria "Insumos" ÷ faturamento do mês. Lance as compras de insumos como saída categoria Insumos para refletir aqui.
         </p>
+
+        {/* Vendas por item (CMV realizado) */}
+        {vendasPorItem.length > 0 && (
+          <div>
+            <p className="text-xs font-medium text-[#8b949e] uppercase tracking-wider mb-2">CMV realizado por prato (vendas vinculadas)</p>
+            <div className="rounded-xl border overflow-hidden" style={{ background: '#141a14', borderColor: 'rgba(255,255,255,0.08)' }}>
+              {vendasPorItem.map((v, idx) => (
+                <div key={idx} className="flex items-center gap-3 px-4 py-2.5 border-b border-[#21262d] last:border-0">
+                  <span className="flex-1 text-sm text-[#e6edf3] truncate">{v.nome} <span className="text-[11px] text-[#8b949e]">×{v.qtd}</span></span>
+                  <span className="text-[11px] text-[#8b949e]">{fmtBRL(v.custo)} / {fmtBRL(v.receita)}</span>
+                  <span className="text-sm font-bold w-12 text-right" style={{ color: corCMV(v.cmv) }}>{v.cmv.toFixed(0)}%</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* CMV teórico por item (cardápio) */}
         <div>
