@@ -210,11 +210,26 @@ export interface Empresa {
   configEntregadores?: ConfigEntregadores
   fornecedores?: Fornecedor[]   // cadastro de fornecedores para vincular às saídas/contas
   cardapio?: ItemCardapio[]     // pratos/produtos vendidos (custo derivado dos insumos)
+  configPrecificacao?: ConfigPrecificacao
   notas?: import('./notasTypes').Nota[]
 }
 
 /** Margem de segurança adicionada ao custo calculado de um item do cardápio (10%). */
 export const MARGEM_SEGURANCA_CARDAPIO = 0.10
+
+// ── Precificação / markup (config da empresa) ─────────────────────────────────
+export interface ConfigPrecificacao {
+  custosFixosMensais: number     // aluguel, energia, etc. (sem folha/insumos)
+  proLabore: number              // retirada do dono
+  faturamentoEstimado: number    // faturamento mensal estimado (base do rateio de fixos)
+  despesasVariaveisPct: number   // % sobre venda: taxas de cartão/plataforma, impostos, comissões
+  lucroDesejadoPct: number       // % de lucro líquido desejado
+}
+
+export const DEFAULT_CONFIG_PRECIFICACAO: ConfigPrecificacao = {
+  custosFixosMensais: 0, proLabore: 0, faturamentoEstimado: 0,
+  despesasVariaveisPct: 0, lucroDesejadoPct: 0,
+}
 
 // ── Helpers de semana (início configurável; padrão segunda-feira) ─────────────
 /** Início da semana que contém `iso`. startDay: 0=domingo..6=sábado (padrão 1=segunda) */

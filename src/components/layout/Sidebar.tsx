@@ -87,6 +87,7 @@ const EMPRESA_NAV: NavSection[] = [
       { id: 'empresa_pagar', label: 'Contas a Pagar', icon: ArrowDownCircle },
       { id: 'empresa_receber', label: 'Contas a Receber', icon: ArrowUpCircle },
       { id: 'empresa_cardapio', label: 'Cardápio', icon: UtensilsCrossed },
+      { id: 'empresa_precificador', label: 'Precificador', icon: Calculator },
       { id: 'empresa_estoque', label: 'Estoque e CMV', icon: Package },
       { id: 'empresa_fornecedores', label: 'Fornecedores', icon: Truck },
     ],

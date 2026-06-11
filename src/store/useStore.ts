@@ -11,7 +11,7 @@ import type {
   Insumo, MovimentoEstoque, DREPeriodo,
   Entregador, RegistroEntrega, PagamentoEntregador,
 } from './empresaTypes'
-import { DEFAULT_CONFIG_ENTREGADORES, MARGEM_SEGURANCA_CARDAPIO } from './empresaTypes'
+import { DEFAULT_CONFIG_ENTREGADORES, MARGEM_SEGURANCA_CARDAPIO, DEFAULT_CONFIG_PRECIFICACAO } from './empresaTypes'
 import type {
   BancoState, ControleFinanceiro, ContaBancaria, Transacao,
   Transferencia, Recorrente, CategoriaFin, OrcamentoItem,
@@ -53,7 +53,7 @@ export type AppView =
   | 'dashboard' | 'projects' | 'editor' | 'kanban' | 'diary' | 'simulador'
   | 'empresa_dashboard' | 'empresa_dre' | 'empresa_fluxo'
   | 'empresa_pagar' | 'empresa_receber' | 'empresa_indicadores'
-  | 'empresa_rh' | 'empresa_estoque' | 'empresa_entregadores' | 'empresa_fornecedores' | 'empresa_cardapio'
+  | 'empresa_rh' | 'empresa_estoque' | 'empresa_entregadores' | 'empresa_fornecedores' | 'empresa_cardapio' | 'empresa_precificador'
   | 'separacao' | 'notas'
   // Banking + financial control (work in both profiles)
   | 'contas' | 'conta_detalhe' | 'transacoes' | 'transferencias'
@@ -92,6 +92,7 @@ export const VIEW_PROFILE: Record<AppView, 'pessoal' | 'empresa' | 'ambos'> = {
   empresa_entregadores: 'empresa',
   empresa_fornecedores: 'empresa',
   empresa_cardapio: 'empresa',
+  empresa_precificador: 'empresa',
 }
 
 export function viewPermitida(view: AppView, perfil: Perfil): boolean {
@@ -451,6 +452,16 @@ interface AppState {
   excluirItemCardapio: (id: string) => void
   /** Custo calculado do item (soma insumos × qtd) + margem de segurança 10%. */
   getCustoItemCardapio: (item: import('./empresaTypes').ItemCardapio) => number
+
+  // Precificação / markup (empresa ativa)
+  getConfigPrecificacao: () => import('./empresaTypes').ConfigPrecificacao
+  setConfigPrecificacao: (cfg: Partial<import('./empresaTypes').ConfigPrecificacao>) => void
+  /** % de custo fixo sobre venda = (fixos + pró-labore) / faturamento estimado. */
+  getCustoFixoPct: () => number
+  /** Divisor de markup (1 - cv% - lucro% - cf%); <= 0 = inviável. */
+  getMarkupDivisor: () => number
+  /** Preço sugerido para um custo de produto, pelo markup configurado. */
+  getPrecoSugerido: (custo: number) => number
 
   // Separação
   separacao: Separacao
@@ -894,6 +905,30 @@ export const useStore = create<AppState>()(
           return s + (ins ? ins.custoUnitario * c.quantidade : 0)
         }, 0)
         return base * (1 + MARGEM_SEGURANCA_CARDAPIO)
+      },
+
+      // Precificação / markup
+      getConfigPrecificacao: () => ({ ...DEFAULT_CONFIG_PRECIFICACAO, ...(get().getEmpresaAtiva()?.configPrecificacao ?? {}) }),
+      setConfigPrecificacao: (cfg) => {
+        const s = get(); const empId = s.empresaAtivaId ?? s.empresas[0]?.id
+        if (empId) set(st => ({ empresas: updEmpresa(st.empresas, empId, e => ({
+          ...e, configPrecificacao: { ...DEFAULT_CONFIG_PRECIFICACAO, ...(e.configPrecificacao ?? {}), ...cfg },
+        })) }))
+      },
+      getCustoFixoPct: () => {
+        const c = get().getConfigPrecificacao()
+        if (c.faturamentoEstimado <= 0) return 0
+        return ((c.custosFixosMensais + c.proLabore) / c.faturamentoEstimado) * 100
+      },
+      getMarkupDivisor: () => {
+        const c = get().getConfigPrecificacao()
+        const cf = get().getCustoFixoPct()
+        return 1 - (c.despesasVariaveisPct + c.lucroDesejadoPct + cf) / 100
+      },
+      getPrecoSugerido: (custo) => {
+        const div = get().getMarkupDivisor()
+        if (div <= 0) return 0
+        return custo / div
       },
 
       // Separação
