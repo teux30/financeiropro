@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Calculator, Brain, BookOpen, ArrowLeftRight,
   BarChart3, Package, Users, Activity,
   ArrowDownCircle, ArrowUpCircle, TrendingUp, ChevronRight,
-  Settings, Wallet, Receipt, CreditCard, Building2, Bike, StickyNote, Truck, UtensilsCrossed, Percent, Shield,
+  Settings, Wallet, Receipt, CreditCard, Building2, Bike, StickyNote, Truck, UtensilsCrossed, Percent, Shield, Target,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AppView } from '../../store/useStore'
@@ -71,6 +71,7 @@ const EMPRESA_NAV: NavSection[] = [
       { id: 'empresa_dashboard', label: 'Painel da Empresa', icon: Building2 },
       { id: 'empresa_dre', label: 'DRE — Resultado', icon: BarChart3 },
       { id: 'empresa_fluxo', label: 'Fluxo de Caixa', icon: ArrowLeftRight },
+      { id: 'empresa_faturamento', label: 'Faturamento & Metas', icon: Target },
     ],
   },
   {

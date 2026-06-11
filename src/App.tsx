@@ -32,6 +32,7 @@ const FornecedoresPage = lazy(() => import('./pages/empresa/Fornecedores').then(
 const CardapioPage = lazy(() => import('./pages/empresa/Cardapio').then(m => ({ default: m.CardapioPage })))
 const PrecificadorPage = lazy(() => import('./pages/empresa/Precificador').then(m => ({ default: m.PrecificadorPage })))
 const CMVPage = lazy(() => import('./pages/empresa/CMV').then(m => ({ default: m.CMVPage })))
+const FaturamentoPage = lazy(() => import('./pages/empresa/Faturamento').then(m => ({ default: m.FaturamentoPage })))
 const NotasPage = lazy(() => import('./pages/NotasPage').then(m => ({ default: m.NotasPage })))
 const SeparacaoPage   = lazy(() => import('./pages/Separacao').then(m => ({ default: m.SeparacaoPage })))
 const ContasPage      = lazy(() => import('./pages/banco/ContasPage').then(m => ({ default: m.ContasPage })))
@@ -94,6 +95,7 @@ function AppShell() {
       case 'empresa_cardapio': return <CardapioPage />
       case 'empresa_precificador': return <PrecificadorPage />
       case 'empresa_cmv': return <CMVPage />
+      case 'empresa_faturamento': return <FaturamentoPage />
       // Banking (both profiles)
       case 'contas':          return <ContasPage />
       case 'conta_detalhe':   return <ContaDetalhe />

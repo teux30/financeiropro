@@ -211,6 +211,7 @@ export interface Empresa {
   fornecedores?: Fornecedor[]   // cadastro de fornecedores para vincular às saídas/contas
   cardapio?: ItemCardapio[]     // pratos/produtos vendidos (custo derivado dos insumos)
   configPrecificacao?: ConfigPrecificacao
+  metasFaturamento?: Record<string, number>  // meta por mês "YYYY-MM"
   notas?: import('./notasTypes').Nota[]
 }
 

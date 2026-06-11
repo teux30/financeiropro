@@ -53,7 +53,7 @@ export type AppView =
   | 'dashboard' | 'projects' | 'editor' | 'kanban' | 'diary' | 'simulador'
   | 'empresa_dashboard' | 'empresa_dre' | 'empresa_fluxo'
   | 'empresa_pagar' | 'empresa_receber' | 'empresa_indicadores'
-  | 'empresa_rh' | 'empresa_estoque' | 'empresa_entregadores' | 'empresa_fornecedores' | 'empresa_cardapio' | 'empresa_precificador' | 'empresa_cmv'
+  | 'empresa_rh' | 'empresa_estoque' | 'empresa_entregadores' | 'empresa_fornecedores' | 'empresa_cardapio' | 'empresa_precificador' | 'empresa_cmv' | 'empresa_faturamento'
   | 'separacao' | 'notas'
   // Banking + financial control (work in both profiles)
   | 'contas' | 'conta_detalhe' | 'transacoes' | 'transferencias'
@@ -96,6 +96,7 @@ export const VIEW_PROFILE: Record<AppView, 'pessoal' | 'empresa' | 'ambos'> = {
   empresa_cardapio: 'empresa',
   empresa_precificador: 'empresa',
   empresa_cmv: 'empresa',
+  empresa_faturamento: 'empresa',
 }
 
 export function viewPermitida(view: AppView, perfil: Perfil): boolean {
@@ -480,6 +481,10 @@ interface AppState {
   getFaturaAberta: (cartaoId: string, perfil?: Perfil) => number
   /** Paga a fatura do ciclo: gera transação na conta vinculada e marca os gastos. */
   pagarFaturaCartao: (cartaoId: string, ano: number, mes: number, contaId: string, perfil?: Perfil) => void
+
+  // Metas de faturamento (empresa ativa)
+  getMetaFaturamento: (ym: string) => number
+  setMetaFaturamento: (ym: string, valor: number) => void
 
   // Separação
   separacao: Separacao
@@ -947,6 +952,18 @@ export const useStore = create<AppState>()(
         const div = get().getMarkupDivisor()
         if (div <= 0) return 0
         return custo / div
+      },
+
+      // Metas de faturamento
+      getMetaFaturamento: (ym) => {
+        const emp = get().getEmpresaAtiva()
+        return emp?.metasFaturamento?.[ym] ?? emp?.metas?.faturamento ?? 0
+      },
+      setMetaFaturamento: (ym, valor) => {
+        const s = get(); const empId = s.empresaAtivaId ?? s.empresas[0]?.id
+        if (empId) set(st => ({ empresas: updEmpresa(st.empresas, empId, e => ({
+          ...e, metasFaturamento: { ...(e.metasFaturamento ?? {}), [ym]: valor },
+        })) }))
       },
 
       // ── Cartões de crédito ───────────────────────────────────────────────────
