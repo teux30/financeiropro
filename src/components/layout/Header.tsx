@@ -119,14 +119,15 @@ export function Header({ onTrocarPerfil, onOpenSettings }: HeaderProps) {
           </button>
         )}
 
-        {/* Avatar */}
-        <div
+        {/* Avatar → Minha Conta */}
+        <button
+          onClick={() => { setActiveProject(null); setActiveView('minha_conta') }}
           className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white select-none"
           style={{ background: accent }}
-          title={isPessoal ? usuario.nome : empresa?.nome}
+          title="Minha conta"
         >
           {inicial}
-        </div>
+        </button>
       </div>
     </header>
   )

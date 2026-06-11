@@ -42,6 +42,7 @@ const TransferenciasPage = lazy(() => import('./pages/banco/TransferenciasPage')
 const ControleFinanceiro = lazy(() => import('./pages/banco/ControleFinanceiro').then(m => ({ default: m.ControleFinanceiro })))
 const CartoesPage = lazy(() => import('./pages/banco/CartoesPage').then(m => ({ default: m.CartoesPage })))
 const BackupPage = lazy(() => import('./pages/Backup').then(m => ({ default: m.BackupPage })))
+const MinhaContaPage = lazy(() => import('./pages/MinhaConta').then(m => ({ default: m.MinhaContaPage })))
 
 export default function App() {
   return (
@@ -104,6 +105,7 @@ function AppShell() {
       case 'controle_financeiro': return <ControleFinanceiro />
       case 'cartoes':         return <CartoesPage />
       case 'backup':          return <BackupPage />
+      case 'minha_conta':     return <MinhaContaPage />
       // Shared
       case 'separacao':    return <SeparacaoPage />
       case 'notas':        return <NotasPage />
