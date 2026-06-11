@@ -33,6 +33,7 @@ const PESSOAL_NAV: NavSection[] = [
       { id: 'transacoes', label: 'Transações', icon: Receipt },
       { id: 'transferencias', label: 'Transferências', icon: ArrowLeftRight },
       { id: 'controle_financeiro', label: 'Controle Financeiro', icon: CreditCard },
+      { id: 'cartoes', label: 'Cartões', icon: CreditCard },
     ],
   },
   {
@@ -79,6 +80,7 @@ const EMPRESA_NAV: NavSection[] = [
       { id: 'transacoes', label: 'Transações', icon: Receipt },
       { id: 'transferencias', label: 'Transferências', icon: ArrowLeftRight },
       { id: 'controle_financeiro', label: 'Controle Financeiro', icon: CreditCard },
+      { id: 'cartoes', label: 'Cartões', icon: CreditCard },
     ],
   },
   {

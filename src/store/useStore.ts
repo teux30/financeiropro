@@ -15,7 +15,7 @@ import { DEFAULT_CONFIG_ENTREGADORES, MARGEM_SEGURANCA_CARDAPIO, DEFAULT_CONFIG_
 import type {
   BancoState, ControleFinanceiro, ContaBancaria, Transacao,
   Transferencia, Recorrente, CategoriaFin, OrcamentoItem,
-  Caixinha, MovimentoCaixinha,
+  Caixinha, MovimentoCaixinha, Cartao, GastoCartao,
 } from './bancoTypes'
 import { emptyBanco, emptyControle } from './bancoTypes'
 import type { Nota } from './notasTypes'
@@ -57,7 +57,7 @@ export type AppView =
   | 'separacao' | 'notas'
   // Banking + financial control (work in both profiles)
   | 'contas' | 'conta_detalhe' | 'transacoes' | 'transferencias'
-  | 'controle_financeiro'
+  | 'controle_financeiro' | 'cartoes'
 
 /**
  * Perfil exigido por cada view, para o guard de isolamento:
@@ -73,6 +73,7 @@ export const VIEW_PROFILE: Record<AppView, 'pessoal' | 'empresa' | 'ambos'> = {
   transacoes: 'ambos',
   transferencias: 'ambos',
   controle_financeiro: 'ambos',
+  cartoes: 'ambos',
   projects: 'ambos',
   notas: 'ambos',
   // pessoais
@@ -199,6 +200,8 @@ function normBanco(b?: BancoState): BancoState {
     recorrentes: b.recorrentes ?? e.recorrentes,
     caixinhas: b.caixinhas ?? e.caixinhas,
     movimentosCaixinha: b.movimentosCaixinha ?? e.movimentosCaixinha,
+    cartoes: b.cartoes ?? e.cartoes,
+    gastosCartao: b.gastosCartao ?? e.gastosCartao,
   }
 }
 
@@ -463,6 +466,19 @@ interface AppState {
   getMarkupDivisor: () => number
   /** Preço sugerido para um custo de produto, pelo markup configurado. */
   getPrecoSugerido: (custo: number) => number
+
+  // Cartões de crédito (perfil)
+  adicionarCartao: (c: Omit<Cartao, 'id' | 'criadoEm'>, perfil?: Perfil) => void
+  editarCartao: (id: string, data: Partial<Cartao>, perfil?: Perfil) => void
+  excluirCartao: (id: string, perfil?: Perfil) => void
+  adicionarGastoCartao: (g: Omit<GastoCartao, 'id' | 'criadoEm'>, perfil?: Perfil) => void
+  excluirGastoCartao: (id: string, perfil?: Perfil) => void
+  /** Gastos da fatura de um cartão no ciclo que fecha no mês/ano informado. */
+  getFaturaCartao: (cartaoId: string, ano: number, mes: number, perfil?: Perfil) => { gastos: GastoCartao[]; total: number; inicio: string; fim: string; vencimento: string }
+  /** Fatura em aberto (não paga) total do cartão. */
+  getFaturaAberta: (cartaoId: string, perfil?: Perfil) => number
+  /** Paga a fatura do ciclo: gera transação na conta vinculada e marca os gastos. */
+  pagarFaturaCartao: (cartaoId: string, ano: number, mes: number, contaId: string, perfil?: Perfil) => void
 
   // Separação
   separacao: Separacao
@@ -930,6 +946,48 @@ export const useStore = create<AppState>()(
         const div = get().getMarkupDivisor()
         if (div <= 0) return 0
         return custo / div
+      },
+
+      // ── Cartões de crédito ───────────────────────────────────────────────────
+      adicionarCartao: (c, perfil) => setBanco(get, set, perfil, b => ({ ...b, cartoes: [...b.cartoes, { ...c, id: nanoid(), criadoEm: hojeLocal() }] })),
+      editarCartao: (id, data, perfil) => setBanco(get, set, perfil, b => ({ ...b, cartoes: b.cartoes.map(c => c.id === id ? { ...c, ...data } : c) })),
+      excluirCartao: (id, perfil) => setBanco(get, set, perfil, b => ({ ...b, cartoes: b.cartoes.filter(c => c.id !== id), gastosCartao: b.gastosCartao.filter(g => g.cartaoId !== id) })),
+      adicionarGastoCartao: (g, perfil) => setBanco(get, set, perfil, b => ({ ...b, gastosCartao: [...b.gastosCartao, { ...g, id: nanoid(), criadoEm: hojeLocal() }] })),
+      excluirGastoCartao: (id, perfil) => setBanco(get, set, perfil, b => ({ ...b, gastosCartao: b.gastosCartao.filter(g => g.id !== id) })),
+      getFaturaCartao: (cartaoId, ano, mes, perfil) => {
+        const b = get().getBanco(perfil)
+        const cartao = b.cartoes.find(c => c.id === cartaoId)
+        const fech = cartao?.diaFechamento ?? 1
+        const venc = cartao?.diaVencimento ?? 10
+        // ciclo: do dia seguinte ao fechamento do mês anterior até o fechamento do mês informado
+        const pad = (n: number) => String(n).padStart(2, '0')
+        const ultimoDia = (a: number, m: number) => new Date(a, m, 0).getDate()
+        const fimDia = Math.min(fech, ultimoDia(ano, mes))
+        const fim = `${ano}-${pad(mes)}-${pad(fimDia)}`
+        const mAnt = mes === 1 ? 12 : mes - 1, aAnt = mes === 1 ? ano - 1 : ano
+        const iniDia = Math.min(fech, ultimoDia(aAnt, mAnt))
+        const iniBase = `${aAnt}-${pad(mAnt)}-${pad(iniDia)}`
+        const inicio = (() => { const d = new Date(iniBase + 'T00:00:00'); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10) })()
+        const vencDia = Math.min(venc, ultimoDia(ano, mes))
+        const vencimento = `${ano}-${pad(mes)}-${pad(vencDia)}`
+        const gastos = b.gastosCartao.filter(g => g.cartaoId === cartaoId && g.data.slice(0, 10) >= inicio && g.data.slice(0, 10) <= fim)
+        return { gastos, total: gastos.reduce((s, g) => s + g.valor, 0), inicio, fim, vencimento }
+      },
+      getFaturaAberta: (cartaoId, perfil) =>
+        get().getBanco(perfil).gastosCartao.filter(g => g.cartaoId === cartaoId && !g.faturaPagaEm).reduce((s, g) => s + g.valor, 0),
+      pagarFaturaCartao: (cartaoId, ano, mes, contaId, perfil) => {
+        const s = get()
+        const fatura = s.getFaturaCartao(cartaoId, ano, mes, perfil)
+        const pendentes = fatura.gastos.filter(g => !g.faturaPagaEm)
+        const total = pendentes.reduce((sum, g) => sum + g.valor, 0)
+        if (total <= 0 || !contaId) return
+        const cartao = s.getBanco(perfil).cartoes.find(c => c.id === cartaoId)
+        const tx = s.registrarTransacao({
+          contaId, tipo: 'saida', valor: total, descricao: `Fatura ${cartao?.nome ?? 'cartão'}`,
+          categoria: 'cartao', data: hojeLocal(), recorrente: false, origemAuto: 'manual',
+        }, perfil)
+        const ids = new Set(pendentes.map(g => g.id))
+        setBanco(get, set, perfil, b => ({ ...b, gastosCartao: b.gastosCartao.map(g => ids.has(g.id) ? { ...g, faturaPagaEm: hojeLocal(), transacaoId: tx.id } : g) }))
       },
 
       // Separação

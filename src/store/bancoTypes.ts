@@ -116,6 +116,34 @@ export interface MovimentoCaixinha {
   caixinhaDestinoId?: string // para transferência
 }
 
+// ── Cartão de crédito ─────────────────────────────────────────────────────────
+export type Bandeira = 'Visa' | 'Mastercard' | 'Elo' | 'Amex' | 'Hipercard' | 'Outro'
+
+export interface Cartao {
+  id: string
+  nome: string
+  bandeira: Bandeira
+  limite: number
+  diaFechamento: number      // 1..31
+  diaVencimento: number      // 1..31
+  contaVinculadaId?: string  // conta que paga a fatura
+  cor: string
+  criadoEm: string
+}
+
+export interface GastoCartao {
+  id: string
+  cartaoId: string
+  valor: number
+  descricao: string
+  categoria: CategoriaFin
+  data: string               // ISO da compra
+  fornecedor?: string
+  faturaPagaEm?: string      // data do pagamento da fatura (quando quitado)
+  transacaoId?: string       // transação gerada ao pagar a fatura
+  criadoEm: string
+}
+
 // ── Banco state (per profile) ─────────────────────────────────────────────────
 export interface BancoState {
   contas: ContaBancaria[]
@@ -124,6 +152,8 @@ export interface BancoState {
   recorrentes: Recorrente[]
   caixinhas: Caixinha[]
   movimentosCaixinha: MovimentoCaixinha[]
+  cartoes: Cartao[]
+  gastosCartao: GastoCartao[]
 }
 
 export const emptyBanco = (): BancoState => ({
@@ -133,7 +163,11 @@ export const emptyBanco = (): BancoState => ({
   recorrentes: [],
   caixinhas: [],
   movimentosCaixinha: [],
+  cartoes: [],
+  gastosCartao: [],
 })
+
+export const BANDEIRAS: Bandeira[] = ['Visa', 'Mastercard', 'Elo', 'Amex', 'Hipercard', 'Outro']
 
 // Ícones disponíveis para caixinhas (nomes Lucide)
 export const CAIXINHA_ICONES = [
