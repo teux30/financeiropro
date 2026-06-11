@@ -53,7 +53,7 @@ export type AppView =
   | 'dashboard' | 'projects' | 'editor' | 'kanban' | 'diary' | 'simulador'
   | 'empresa_dashboard' | 'empresa_dre' | 'empresa_fluxo'
   | 'empresa_pagar' | 'empresa_receber' | 'empresa_indicadores'
-  | 'empresa_rh' | 'empresa_estoque' | 'empresa_entregadores' | 'empresa_fornecedores' | 'empresa_cardapio' | 'empresa_precificador'
+  | 'empresa_rh' | 'empresa_estoque' | 'empresa_entregadores' | 'empresa_fornecedores' | 'empresa_cardapio' | 'empresa_precificador' | 'empresa_cmv'
   | 'separacao' | 'notas'
   // Banking + financial control (work in both profiles)
   | 'contas' | 'conta_detalhe' | 'transacoes' | 'transferencias'
@@ -93,6 +93,7 @@ export const VIEW_PROFILE: Record<AppView, 'pessoal' | 'empresa' | 'ambos'> = {
   empresa_fornecedores: 'empresa',
   empresa_cardapio: 'empresa',
   empresa_precificador: 'empresa',
+  empresa_cmv: 'empresa',
 }
 
 export function viewPermitida(view: AppView, perfil: Perfil): boolean {
