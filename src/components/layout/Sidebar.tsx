@@ -2,7 +2,7 @@ import {
   LayoutDashboard, Calculator, Brain, BookOpen, ArrowLeftRight,
   BarChart3, Package, Users, Activity,
   ArrowDownCircle, ArrowUpCircle, TrendingUp, ChevronRight,
-  Settings, Wallet, Receipt, CreditCard, Building2, Bike, StickyNote, Truck, UtensilsCrossed, Percent,
+  Settings, Wallet, Receipt, CreditCard, Building2, Bike, StickyNote, Truck, UtensilsCrossed, Percent, Shield,
 } from 'lucide-react'
 import { useStore } from '../../store/useStore'
 import type { AppView } from '../../store/useStore'
@@ -220,6 +220,13 @@ export function Sidebar({ onTrocarPerfil, onOpenSettings, onNavigate, className 
             style={{ background: accent }}
             title={isPessoal ? 'Pessoal' : 'Empresa'}
           />
+        </button>
+        <button
+          onClick={() => navigate('backup')}
+          className="flex items-center gap-2.5 w-full px-3 py-2 rounded-lg text-sm text-[#8b949e] hover:bg-[#161b22] hover:text-[#e6edf3] transition-all"
+        >
+          <Shield size={15} />
+          <span>Backup</span>
         </button>
         <button
           onClick={onOpenSettings}

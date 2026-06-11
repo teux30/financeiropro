@@ -57,7 +57,7 @@ export type AppView =
   | 'separacao' | 'notas'
   // Banking + financial control (work in both profiles)
   | 'contas' | 'conta_detalhe' | 'transacoes' | 'transferencias'
-  | 'controle_financeiro' | 'cartoes'
+  | 'controle_financeiro' | 'cartoes' | 'backup'
 
 /**
  * Perfil exigido por cada view, para o guard de isolamento:
@@ -74,6 +74,7 @@ export const VIEW_PROFILE: Record<AppView, 'pessoal' | 'empresa' | 'ambos'> = {
   transferencias: 'ambos',
   controle_financeiro: 'ambos',
   cartoes: 'ambos',
+  backup: 'ambos',
   projects: 'ambos',
   notas: 'ambos',
   // pessoais
